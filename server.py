@@ -78,6 +78,14 @@ def valid_public_order_request():
 
 
 PRINT_AGENT_TOKEN = os.environ.get('PRINT_AGENT_TOKEN', 'ChangeThisPrintAgentToken')
+FEISHU_APP_ID = os.environ.get('FEISHU_APP_ID', '').strip()
+FEISHU_APP_SECRET = os.environ.get('FEISHU_APP_SECRET', '').strip()
+FEISHU_BITABLE_APP_TOKEN = os.environ.get('FEISHU_BITABLE_APP_TOKEN', '').strip()
+FEISHU_BITABLE_TABLE_ID = os.environ.get('FEISHU_BITABLE_TABLE_ID', '').strip()
+FEISHU_SYNC_ENABLED = os.environ.get('FEISHU_SYNC_ENABLED', '').strip().lower() in ('1', 'true', 'yes', 'on')
+FEISHU_SYNC_INTERVAL_SECONDS = int(os.environ.get('FEISHU_SYNC_INTERVAL_SECONDS', '60') or 60)
+_feishu_token_cache = {'token': '', 'expires_at': 0}
+_feishu_sync_thread_started = False
 _print_job_condition = threading.Condition()
 BLOG_SAFE_POSTS = [
     {
@@ -523,6 +531,20 @@ class Database:
                 )
             ''')
 
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS feishu_sync_records (
+                    id TEXT PRIMARY KEY,
+                    sale_id TEXT NOT NULL,
+                    sale_item_id TEXT NOT NULL,
+                    record_id TEXT NOT NULL,
+                    status TEXT DEFAULT '待确认',
+                    last_error TEXT,
+                    synced_at TEXT,
+                    created_at TEXT,
+                    UNIQUE(sale_item_id)
+                )
+            ''')
+
             # 迁移：为已有表添加 purchase_id 字段
             try:
                 conn.execute("ALTER TABLE outbounds ADD COLUMN purchase_id TEXT")
@@ -564,7 +586,9 @@ class Database:
                 'CREATE INDEX IF NOT EXISTS idx_ai_usage_date ON ai_usage(date)',
                 'CREATE INDEX IF NOT EXISTS idx_customer_product_prices_customer_product ON customer_product_prices(customer, product_id, product_unit)',
                 'CREATE INDEX IF NOT EXISTS idx_customer_product_prices_name ON customer_product_prices(customer, product_name, product_unit)',
-                'CREATE INDEX IF NOT EXISTS idx_print_jobs_status_created ON print_jobs(status, created_at)'
+                'CREATE INDEX IF NOT EXISTS idx_print_jobs_status_created ON print_jobs(status, created_at)',
+                'CREATE INDEX IF NOT EXISTS idx_feishu_sync_records_sale_id ON feishu_sync_records(sale_id)',
+                'CREATE INDEX IF NOT EXISTS idx_feishu_sync_records_record_id ON feishu_sync_records(record_id)'
             ]
             for sql in indexes:
                 conn.execute(sql)
@@ -669,6 +693,263 @@ def clean_number(value, digits=4):
     if abs(number) < 0.000001:
         return 0
     return round(number, digits)
+
+
+def feishu_configured():
+    return bool(FEISHU_APP_ID and FEISHU_APP_SECRET and FEISHU_BITABLE_APP_TOKEN and FEISHU_BITABLE_TABLE_ID)
+
+
+def feishu_date_millis(value):
+    text = normalize_date(value)
+    try:
+        dt = datetime.strptime(text, '%Y-%m-%d')
+        return int(time.mktime(dt.timetuple()) * 1000)
+    except ValueError:
+        return int(time.time() * 1000)
+
+
+def feishu_field_value(value):
+    if isinstance(value, list):
+        parts = []
+        for item in value:
+            if isinstance(item, dict):
+                parts.append(str(item.get('text') or item.get('name') or item.get('value') or ''))
+            else:
+                parts.append(str(item))
+        return ''.join(parts).strip()
+    if isinstance(value, dict):
+        return str(value.get('text') or value.get('name') or value.get('value') or '').strip()
+    return str(value or '').strip()
+
+
+def feishu_get_token():
+    if not feishu_configured():
+        raise RuntimeError('飞书同步未配置')
+    now_ts = time.time()
+    if _feishu_token_cache.get('token') and _feishu_token_cache.get('expires_at', 0) > now_ts + 120:
+        return _feishu_token_cache['token']
+    req = urllib.request.Request(
+        'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
+        data=json.dumps({'app_id': FEISHU_APP_ID, 'app_secret': FEISHU_APP_SECRET}).encode(),
+        headers={'Content-Type': 'application/json; charset=utf-8'},
+        method='POST'
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        data = json.loads(resp.read())
+    if data.get('code') != 0:
+        raise RuntimeError(data.get('msg') or '获取飞书 token 失败')
+    expire = int(data.get('expire') or 7200)
+    _feishu_token_cache['token'] = data.get('tenant_access_token') or ''
+    _feishu_token_cache['expires_at'] = now_ts + expire
+    return _feishu_token_cache['token']
+
+
+def feishu_api(method, path, data=None):
+    token = feishu_get_token()
+    url = 'https://open.feishu.cn/open-apis/' + path.lstrip('/')
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json; charset=utf-8'}
+    body = json.dumps(data, ensure_ascii=False).encode() if data is not None else None
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        result = json.loads(resp.read())
+    if result.get('code') != 0:
+        raise RuntimeError(result.get('msg') or f'飞书接口失败：{result.get("code")}')
+    return result
+
+
+def feishu_record_path(record_id=''):
+    base = f'bitable/v1/apps/{FEISHU_BITABLE_APP_TOKEN}/tables/{FEISHU_BITABLE_TABLE_ID}/records'
+    return f'{base}/{record_id}' if record_id else base
+
+
+def feishu_sale_item_fields(sale, item):
+    amount = as_float(item.get('quantity')) * as_float(item.get('price'))
+    return {
+        '订单号': sale.get('no') or '',
+        '同步状态': '待确认',
+        '客户': sale.get('customer') or '',
+        '日期': feishu_date_millis(sale.get('date')),
+        '商品名称': item.get('product_name') or '',
+        '数量': clean_number(item.get('quantity'), 4),
+        '单位': item.get('product_unit') or '',
+        '单价': clean_number(item.get('price'), 4),
+        '金额': clean_number(amount, 4),
+        '备注': item.get('note') or '',
+        '系统销售单ID': sale.get('id') or '',
+        '系统明细ID': item.get('id') or '',
+        '商品ID': item.get('product_id') or '',
+        '同步错误': '',
+    }
+
+
+def push_sale_to_feishu(sale_id):
+    if not FEISHU_SYNC_ENABLED or not feishu_configured():
+        return None
+    conn = db._get_conn()
+    try:
+        sale_row = conn.execute('SELECT * FROM sales WHERE id = ?', (sale_id,)).fetchone()
+        if not sale_row:
+            return '销售单不存在'
+        sale = dict(sale_row)
+        old_records = conn.execute('SELECT record_id FROM feishu_sync_records WHERE sale_id = ?', (sale_id,)).fetchall()
+        for row in old_records:
+            try:
+                feishu_api('DELETE', feishu_record_path(row['record_id']))
+            except Exception:
+                pass
+        conn.execute('DELETE FROM feishu_sync_records WHERE sale_id = ?', (sale_id,))
+
+        items = conn.execute('SELECT * FROM sales_items WHERE sale_id = ? ORDER BY rowid', (sale_id,)).fetchall()
+        for item_row in items:
+            item = dict(item_row)
+            result = feishu_api('POST', feishu_record_path(), {'fields': feishu_sale_item_fields(sale, item)})
+            record = result.get('data', {}).get('record', {})
+            record_id = record.get('record_id') or record.get('id')
+            if record_id:
+                conn.execute('''
+                    INSERT OR REPLACE INTO feishu_sync_records
+                        (id, sale_id, sale_item_id, record_id, status, last_error, synced_at, created_at)
+                    VALUES (?, ?, ?, ?, '待确认', '', ?, ?)
+                ''', (generate_id(), sale_id, item['id'], record_id, now_str(), now_str()))
+        conn.commit()
+        return None
+    except Exception as e:
+        conn.rollback()
+        return str(e)
+    finally:
+        conn.close()
+
+
+def safe_push_sale_to_feishu(sale_id):
+    try:
+        return push_sale_to_feishu(sale_id)
+    except Exception as e:
+        return str(e)
+
+
+def feishu_update_record(record_id, fields):
+    return feishu_api('PUT', feishu_record_path(record_id), {'fields': fields})
+
+
+def list_feishu_records():
+    records = []
+    page_token = ''
+    while True:
+        query = 'page_size=500'
+        if page_token:
+            query += '&page_token=' + page_token
+        result = feishu_api('GET', feishu_record_path() + '?' + query)
+        data = result.get('data') or {}
+        records.extend(data.get('items') or [])
+        if not data.get('has_more'):
+            break
+        page_token = data.get('page_token') or ''
+        if not page_token:
+            break
+    return records
+
+
+def sync_confirmed_feishu_records():
+    if not FEISHU_SYNC_ENABLED or not feishu_configured():
+        return {'synced': 0, 'failed': 0, 'message': '飞书同步未启用'}
+    records = list_feishu_records()
+    synced = 0
+    failed = 0
+    for record in records:
+        record_id = record.get('record_id') or record.get('id')
+        fields = record.get('fields') or {}
+        status = feishu_field_value(fields.get('同步状态'))
+        if status != '已确认':
+            continue
+        try:
+            sale_id = feishu_field_value(fields.get('系统销售单ID'))
+            sale_item_id = feishu_field_value(fields.get('系统明细ID'))
+            product_name = normalize_hotel_item_name(feishu_field_value(fields.get('商品名称')))
+            unit = feishu_field_value(fields.get('单位'))
+            quantity = as_float(fields.get('数量'))
+            price = as_float(fields.get('单价'))
+            note = feishu_field_value(fields.get('备注'))
+            if not sale_id or not sale_item_id:
+                raise ValueError('缺少系统销售单ID或系统明细ID')
+            if not product_name or quantity <= 0:
+                raise ValueError('商品名称或数量无效')
+
+            conn = db._get_conn()
+            try:
+                sale = conn.execute('SELECT * FROM sales WHERE id = ?', (sale_id,)).fetchone()
+                sale_item = conn.execute('SELECT * FROM sales_items WHERE id = ? AND sale_id = ?', (sale_item_id, sale_id)).fetchone()
+                if not sale or not sale_item:
+                    raise ValueError('系统销售单或明细不存在，可能已重新生成')
+                product = find_product_with_conn(conn, product_name, unit=unit)
+                if not product:
+                    product = create_hotel_flow_product(conn, product_name, '', unit or '件', price)
+                subtotal = quantity * price
+                conn.execute('''
+                    UPDATE sales_items
+                    SET product_id = ?, product_name = ?, product_spec = ?, product_unit = ?,
+                        quantity = ?, price = ?, subtotal = ?, note = ?
+                    WHERE id = ?
+                ''', (
+                    product['id'], product['name'], product.get('spec') or '', unit or product.get('unit') or '',
+                    quantity, price, subtotal, note, sale_item_id
+                ))
+                total_row = conn.execute('SELECT COALESCE(SUM(subtotal), 0) AS total FROM sales_items WHERE sale_id = ?', (sale_id,)).fetchone()
+                conn.execute('UPDATE sales SET total = ? WHERE id = ?', (as_float(total_row['total'] if total_row else 0), sale_id))
+                if price > 0:
+                    conn.execute('UPDATE products SET last_sale_price = ? WHERE id = ?', (price, product['id']))
+                    upsert_customer_product_price(
+                        conn,
+                        sale['customer'],
+                        product,
+                        unit or product.get('unit') or '',
+                        price,
+                        source='feishu_confirm'
+                    )
+                conn.execute('''
+                    UPDATE feishu_sync_records
+                    SET status = '已同步', last_error = '', synced_at = ?
+                    WHERE record_id = ?
+                ''', (now_str(), record_id))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                conn.close()
+
+            feishu_update_record(record_id, {
+                '同步状态': '已同步',
+                '金额': clean_number(quantity * price, 4),
+                '同步时间': int(time.time() * 1000),
+                '同步错误': '',
+            })
+            synced += 1
+        except Exception as e:
+            failed += 1
+            try:
+                feishu_update_record(record_id, {'同步状态': '同步失败', '同步错误': str(e)[:500]})
+            except Exception:
+                pass
+    return {'synced': synced, 'failed': failed}
+
+
+def feishu_sync_worker():
+    time.sleep(8)
+    while True:
+        try:
+            sync_confirmed_feishu_records()
+        except Exception as e:
+            print(f'[feishu-sync] {e}')
+        time.sleep(max(FEISHU_SYNC_INTERVAL_SECONDS, 15))
+
+
+def start_feishu_sync_thread():
+    global _feishu_sync_thread_started
+    if _feishu_sync_thread_started or not FEISHU_SYNC_ENABLED or not feishu_configured():
+        return
+    _feishu_sync_thread_started = True
+    thread = threading.Thread(target=feishu_sync_worker, daemon=True)
+    thread.start()
 
 
 def format_date_dot(value):
@@ -2074,11 +2355,18 @@ def sync_hotel_grocery_orders(items, date_str, supplier_name, customer, company=
     result, error, status = create_hotel_sales_orders(rows_data)
     if error:
         return None, error, status
+    feishu_errors = []
+    for sale_id in result.get('saleIds') or []:
+        err = safe_push_sale_to_feishu(sale_id)
+        if err:
+            feishu_errors.append(err)
     result.update({
         'createdProducts': len(created_products),
         'createdProductNames': sorted(set(created_products)),
         'order': [item['name'] for item in items],
     })
+    if feishu_errors:
+        result['feishuSyncError'] = '；'.join(feishu_errors[:3])
     return result, None, status
 
 
@@ -2142,6 +2430,7 @@ def create_hotel_sales_orders(rows_data, conn=None):
     imported_items = 0
     deducted_items = 0
     duplicate_orders = 0
+    sale_ids = []
     owns_conn = conn is None
     if owns_conn:
         conn = db._get_conn()
@@ -2189,6 +2478,7 @@ def create_hotel_sales_orders(rows_data, conn=None):
                 imported_items += 1
 
             created += 1
+            sale_ids.append(sid)
 
         if owns_conn:
             conn.commit()
@@ -2196,7 +2486,8 @@ def create_hotel_sales_orders(rows_data, conn=None):
             'created': created,
             'items': imported_items,
             'deductedItems': deducted_items,
-            'duplicateOrders': duplicate_orders
+            'duplicateOrders': duplicate_orders,
+            'saleIds': sale_ids
         }, None, 200
     except Exception as e:
         if owns_conn:
@@ -3750,7 +4041,11 @@ def create_or_update_sale():
                 )
 
         conn.commit()
-        return jsonify({'id': sid, 'message': '保存成功'})
+        feishu_error = safe_push_sale_to_feishu(sid)
+        response = {'id': sid, 'message': '保存成功'}
+        if feishu_error:
+            response['feishuSyncError'] = feishu_error
+        return jsonify(response)
     except Exception as e:
         conn.rollback()
         return jsonify({'error': str(e)}), 500
@@ -5473,6 +5768,24 @@ def import_sales_prices_excel():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/feishu/status', methods=['GET'])
+def feishu_status():
+    return jsonify({
+        'enabled': FEISHU_SYNC_ENABLED,
+        'configured': feishu_configured(),
+        'intervalSeconds': FEISHU_SYNC_INTERVAL_SECONDS,
+        'tableId': FEISHU_BITABLE_TABLE_ID if feishu_configured() else '',
+    })
+
+
+@app.route('/api/feishu/sync-confirmed', methods=['POST'])
+def api_sync_confirmed_feishu_records():
+    try:
+        return jsonify(sync_confirmed_feishu_records())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/import/hotel-orders-xlsx', methods=['POST'])
 def import_hotel_orders_xlsx():
     """导入酒店订单 Excel，每个客户/日期明细块生成一张销售单。"""
@@ -5768,6 +6081,8 @@ def export_sales_stats_excel():
 
 
 # ---------- 启动 ----------
+
+start_feishu_sync_thread()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5011'))
