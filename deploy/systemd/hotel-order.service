@@ -1,0 +1,28 @@
+[Unit]
+Description=Hotel Order Management System
+After=network.target
+
+[Service]
+Type=simple
+User=hotelapp
+Group=hotelapp
+WorkingDirectory=/opt/hotel-order-system
+Environment=HOST=127.0.0.1
+Environment=PORT=5011
+Environment=NO_BROWSER=1
+Environment=HOTEL_AUTH_USER=admin
+Environment=HOTEL_AUTH_PASSWORD=ChangeThisStrongPassword
+Environment=PUBLIC_ORDER_TOKEN=ChangeThisPublicOrderToken
+Environment=PUBLIC_ORDER_BASE_URL=https://your-domain.example
+Environment=AI_DAILY_LIMIT_CNY=2
+Environment=AI_TEXT_FALLBACK_COST_CNY=0.01
+ExecStart=/opt/hotel-order-system/.venv/bin/gunicorn --workers 2 --threads 4 --bind 127.0.0.1:5011 server:app
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/hotel-order-system
+
+[Install]
+WantedBy=multi-user.target

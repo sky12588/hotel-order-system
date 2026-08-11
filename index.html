@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>酒店订单管理系统</title>
+    <link rel="stylesheet" href="style.css?v=20260723-product-price-filter">
+</head>
+<body>
+    <!-- 移动端顶部导航 -->
+    <div class="mobile-header">
+        <h1>酒店订单</h1>
+        <button class="mobile-menu-btn" onclick="App.toggleMobileMenu()">☰</button>
+    </div>
+    <div class="mobile-overlay" id="mobileOverlay" onclick="App.toggleMobileMenu()"></div>
+
+    <div class="app">
+        <!-- 侧边导航 -->
+        <nav class="sidebar" id="sidebar">
+            <div class="logo">
+                <h1>酒店订单</h1>
+                <p style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;">清单 / 销售 / 采购 / 利润</p>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item" data-page="dashboard" onclick="App.navigate('dashboard')">
+                    <span class="icon">📊</span> <span>首页概览</span>
+                </li>
+                <li class="nav-item" data-page="products" onclick="App.navigate('products')">
+                    <span class="icon">📦</span> <span>物品售价</span>
+                </li>
+                <li class="nav-item" data-page="suppliers" onclick="App.navigate('suppliers')" style="display:none">
+                    <span class="icon">🏭</span> <span>供应商管理</span>
+                </li>
+                <li class="nav-item" data-page="purchase" onclick="App.navigate('purchase')" style="display:none">
+                    <span class="icon">🛒</span> <span>采购入库</span>
+                </li>
+                <li class="nav-item" data-page="outbound" onclick="App.navigate('outbound')" style="display:none">
+                    <span class="icon">📤</span> <span>部门领用</span>
+                </li>
+                <li class="nav-item active" data-page="sales" onclick="App.navigate('sales')">
+                    <span class="icon">📝</span> <span>酒店下单</span>
+                </li>
+                <li class="nav-item" data-page="customers" onclick="App.navigate('customers')">
+                    <span class="icon">👤</span> <span>客户管理</span>
+                </li>
+                <li class="nav-item" data-page="inventory" onclick="App.navigate('inventory')" style="display:none">
+                    <span class="icon">📋</span> <span>库存查询</span>
+                </li>
+                <li class="nav-item" data-page="dept-stats" onclick="App.navigate('dept-stats')" style="display:none">
+                    <span class="icon">🏢</span> <span>部门统计</span>
+                </li>
+                <li class="nav-item" data-page="customer-profit" onclick="App.navigate('customer-profit')">
+                    <span class="icon">💹</span> <span>利润报表</span>
+                </li>
+                <li class="nav-item" data-page="finance" onclick="App.navigate('finance')" style="display:none">
+                    <span class="icon">📈</span> <span>账单统计</span>
+                </li>
+                <li class="nav-item" data-page="backup" onclick="App.navigate('backup')">
+                    <span class="icon">💾</span> <span>数据备份</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="main-content" id="mainContent">
+            <!-- 首页概览 -->
+            <section id="dashboard" class="page">
+                <h2>酒店经营概览</h2>
+                <div class="cards">
+                    <div class="card">
+                        <h3>本月销售额</h3>
+                        <p class="number" id="dashMonthSales">¥0.00</p>
+                    </div>
+                    <div class="card">
+                        <h3>今日下单</h3>
+                        <p class="number" id="dashTodayOrders">0</p>
+                    </div>
+                    <div class="card">
+                        <h3>本月下单</h3>
+                        <p class="number" id="dashMonthOrders">0</p>
+                    </div>
+                    <div class="card">
+                        <h3>活跃酒店</h3>
+                        <p class="number" id="dashActiveCustomers">0</p>
+                    </div>
+                </div>
+
+                <div class="two-column" style="margin-top:24px;">
+                    <div class="recent-section">
+                        <h3>三家酒店销售和下单频率</h3>
+                        <table class="data-table">
+                            <thead><tr><th>酒店</th><th>本月销售额</th><th>本月单数</th><th>最近下单</th></tr></thead>
+                            <tbody id="dashCustomerStats"></tbody>
+                        </table>
+                    </div>
+                    <div class="recent-section">
+                        <h3>本月采购量最高物品</h3>
+                        <table class="data-table">
+                            <thead><tr><th>品名</th><th>类型</th><th>数量</th><th>销售额</th></tr></thead>
+                            <tbody id="dashTopItems"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 快捷操作 -->
+                <div class="quick-actions">
+                    <h3>快捷操作</h3>
+                    <div class="quick-buttons">
+                        <button class="btn btn-primary" onclick="Modals.open('hotelImportModal')">
+                            <span class="icon">🧾</span> 清单下单
+                        </button>
+                        <button class="btn btn-primary" onclick="Modals.open('salesModal'); SalesModal.reset();">
+                            <span class="icon">📝</span> 手动销售单
+                        </button>
+                        <button class="btn btn-primary" onclick="App.navigate('stats')">
+                            <span class="icon">📈</span> 利润报表
+                        </button>
+                        <button class="btn" onclick="Modals.open('salesPriceImportModal')">
+                            导入销售单售价
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 物品管理 -->
+            <section id="products" class="page">
+                <div class="page-header">
+                    <h2>物品售价</h2>
+                    <div class="page-actions">
+                        <button class="btn" onclick="Products.exportSelected()">📊 导出选中</button>
+                        <button class="btn" onclick="Modals.open('excelImportModal')">📄 Excel导入</button>
+                        <button class="btn" onclick="Modals.open('salesPriceImportModal')">导入销售单售价</button>
+                        <button class="btn btn-primary" onclick="ProductModal.open()">+ 添加物品</button>
+                    </div>
+                </div>
+                <div class="product-filter-panel">
+                    <div class="product-category-summary" id="productCategorySummary"></div>
+                    <div class="filter-bar product-filter-bar">
+                        <label>分类：</label>
+                        <select id="productCategoryFilter" onchange="Products.render()">
+                            <option value="">全部分类</option>
+                        </select>
+                        <label>搜索：</label>
+                        <input type="search" id="productSearchInput" placeholder="输入物品名、编号、单位" oninput="Products.onSearchInput()" />
+                        <button class="btn btn-sm" onclick="Products.clearFilters()">清空</button>
+                    </div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px"><input type="checkbox" id="selectAllProducts" onchange="Products.toggleSelectAll()"></th>
+                            <th>分类</th><th>编号</th><th>名称</th><th>规格</th><th>单位</th>
+                            <th>采购价</th><th>销售价</th><th>库存</th><th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productList"></tbody>
+                </table>
+            </section>
+
+            <!-- 供应商管理 -->
+            <section id="suppliers" class="page">
+                <div class="page-header">
+                    <h2>供应商管理</h2>
+                    <button class="btn btn-primary" onclick="SupplierModal.open()">+ 添加供应商</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>编号</th><th>供应商名称</th><th>联系人</th><th>电话</th><th>地址</th><th>备注</th><th>操作</th></tr>
+                    </thead>
+                    <tbody id="supplierList"></tbody>
+                </table>
+            </section>
+
+            <!-- 采购入库 -->
+            <section id="purchase" class="page">
+                <div class="page-header">
+                    <h2>采购入库</h2>
+                    <div class="page-actions">
+                        <button class="btn btn-danger" onclick="Purchases.batchDelete()">🗑 批量删除</button>
+                        <button class="btn" onclick="Modals.open('purchaseImportModal')">📄 Excel导入</button>
+                        <button class="btn btn-primary" onclick="PurchaseModal.open()">+ 新建采购单</button>
+                    </div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px"><input type="checkbox" id="selectAllPurchases" onchange="Purchases.toggleSelectAll()"></th>
+                            <th>单号</th><th>日期</th><th>供应商</th><th>物品数</th><th>总金额</th><th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="purchaseList"></tbody>
+                </table>
+            </section>
+
+            <!-- 部门领用 -->
+            <section id="outbound" class="page">
+                <div class="page-header">
+                    <h2>部门领用</h2>
+                    <div class="page-actions">
+                        <button class="btn btn-danger" onclick="Outbounds.batchDelete()">批量删除</button>
+                        <button class="btn" onclick="Modals.open('outboundImportModal')">📄 Excel导入</button>
+                        <button class="btn btn-primary" onclick="OutboundModal.open()">+ 新建领用单</button>
+                    </div>
+                </div>
+                <div class="filter-bar">
+                    <label>部门筛选：</label>
+                    <select id="outboundDeptFilter" onchange="Outbounds.render()">
+                        <option value="">全部</option>
+                        <option value="食堂">食堂</option>
+                        <option value="保洁">保洁</option>
+                        <option value="办公">办公</option>
+                        <option value="维修">维修</option>
+                        <option value="酒店">酒店</option>
+                    </select>
+                    <label style="margin-left:20px">打印设置：</label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="printShowPrice" checked> 打印显示单价金额
+                    </label>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th style="width:40px"><input type="checkbox" id="selectAllOutbounds" onchange="Outbounds.toggleSelectAll()"></th><th>单号</th><th>日期</th><th>领用部门</th><th>物品数</th><th>总金额</th><th>操作</th></tr>
+                    </thead>
+                    <tbody id="outboundList"></tbody>
+                </table>
+            </section>
+
+            <!-- 销售出库 -->
+            <section id="sales" class="page active">
+                <div class="page-header">
+                    <h2>销售出库</h2>
+                    <div class="page-actions">
+                        <button class="btn" onclick="ExcelImport.openHotelSalesImport()">酒店清单导入</button>
+                        <button class="btn btn-primary" onclick="Sales.printTodayJobs()">一键打印当日单据</button>
+                        <button class="btn" onclick="Sales.printSelected()">打印销售单</button>
+                        <button class="btn" onclick="Sales.printSelectedPurchaseList()">打印采购单</button>
+                        <button class="btn" onclick="Printer.openPrintSettings()">打印设置</button>
+                        <button class="btn" onclick="Sales.exportSelected('half')">导出二等分销售单</button>
+                        <button class="btn" onclick="Sales.exportSelected('third')">导出三等分销售单</button>
+                        <button class="btn" onclick="Sales.exportSelectedPurchaseList()">导出合并采购单</button>
+                        <button class="btn btn-danger" onclick="Sales.batchDelete()">批量删除销售单</button>
+                        <button class="btn btn-primary" onclick="SalesModal.open()">+ 新建销售单</button>
+                    </div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th style="width:40px;"><input type="checkbox" id="salesSelectAll" onchange="Sales.toggleSelectAll(this.checked)"></th><th>日期</th><th>客户名称</th><th>销售单号</th><th>物品数</th><th>总金额</th><th>操作</th></tr>
+                    </thead>
+                    <tbody id="salesList"></tbody>
+                </table>
+            </section>
+
+            <!-- 客户管理 -->
+            <section id="customers" class="page">
+                <div class="page-header">
+                    <h2>客户管理</h2>
+                    <button class="btn btn-primary" onclick="CustomerModal.open()">+ 添加客户</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>编号</th><th>客户名称</th><th>公司抬头</th><th>联系电话</th><th>地址</th><th>备注</th><th>操作</th></tr>
+                    </thead>
+                    <tbody id="customerList"></tbody>
+                </table>
+            </section>
+
+            <!-- 库存查询 -->
+            <section id="inventory" class="page">
+                <div class="page-header">
+                    <h2>库存查询</h2>
+                    <div class="page-actions">
+                        <input type="text" id="inventorySearch" placeholder="搜索物品..." oninput="Inventory.scheduleRender()">
+                        <button class="btn" onclick="Inventory.exportExcel()">📊 导出库存表</button>
+                    </div>
+                </div>
+                <div class="filter-bar">
+                    <label>库存状态：</label>
+                    <select id="stockFilter" onchange="Inventory.render()">
+                        <option value="">全部</option>
+                        <option value="normal">正常</option>
+                        <option value="low">低库存</option>
+                        <option value="out">缺货</option>
+                    </select>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>编号</th><th>名称</th><th>规格</th><th>库存量</th><th>预警线</th><th>采购单价</th><th>库存总值</th><th>状态</th></tr>
+                    </thead>
+                    <tbody id="inventoryList"></tbody>
+                </table>
+            </section>
+
+            <!-- 部门统计 -->
+            <section id="dept-stats" class="page">
+                <h2>部门统计</h2>
+
+                <h3 style="margin-top:16px">部门领用统计</h3>
+                <div class="cards" id="deptStatsCards">
+                    <div class="card"><h3>食堂累计领用</h3><p class="number" id="deptCanteen">¥0.00</p></div>
+                    <div class="card"><h3>保洁累计领用</h3><p class="number" id="deptClean">¥0.00</p></div>
+                    <div class="card"><h3>办公累计领用</h3><p class="number" id="deptOffice">¥0.00</p></div>
+                    <div class="card"><h3>维修累计领用</h3><p class="number" id="deptRepair">¥0.00</p></div>
+                    <div class="card"><h3>酒店累计领用</h3><p class="number" id="deptHotel">¥0.00</p></div>
+                </div>
+                <h3 style="margin-top:24px">部门领用明细</h3>
+                <table class="data-table">
+                    <thead><tr><th>部门</th><th>领用次数</th><th>物品总数</th><th>累计金额</th></tr></thead>
+                    <tbody id="deptDetailList"></tbody>
+                </table>
+
+                <h3 style="margin-top:32px">销售出库统计</h3>
+                <div class="cards">
+                    <div class="card"><h3>销售单数</h3><p class="number" id="salesOrderCount">0</p></div>
+                    <div class="card"><h3>销售总成本</h3><p class="number" id="salesTotalCost">¥0.00</p></div>
+                    <div class="card"><h3>销售总金额</h3><p class="number" id="salesTotalRevenue">¥0.00</p></div>
+                    <div class="card"><h3>销售总利润</h3><p class="number income" id="salesTotalProfit">¥0.00</p></div>
+                    <div class="card"><h3>平均毛利率</h3><p class="number" id="salesAvgMargin">0%</p></div>
+                </div>
+                <div class="page-header" style="margin-top:24px">
+                    <h3>销售出库明细</h3>
+                    <div class="page-actions">
+                        <button class="btn btn-sm" onclick="DeptStats.exportSales('order')">📄 按订单导出</button>
+                        <button class="btn btn-sm" onclick="DeptStats.exportSales('date')">📅 按日期汇总导出</button>
+                    </div>
+                </div>
+                <table class="data-table">
+                    <thead><tr><th>客户</th><th>单号</th><th>日期</th><th>物品数</th><th>成本</th><th>销售额</th><th>利润</th><th>毛利率</th></tr></thead>
+                    <tbody id="salesDetailList"></tbody>
+                </table>
+            </section>
+
+            <!-- 客户利润 -->
+            <section id="customer-profit" class="page">
+                <div class="page-header">
+                    <h2>客户利润</h2>
+                    <div class="page-actions">
+                        <select id="customerProfitMonth" onchange="CustomerProfit.changeMonth(this.value)" style="padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;"></select>
+                        <button class="btn" onclick="CustomerProfit.exportReport()">导出报表</button>
+                    </div>
+                </div>
+                <p style="color:#666;margin-bottom:16px;">酒店生鲜类按平价出库处理，成本等于销售金额，利润为 0；非生鲜按物品档案成本价计算利润。</p>
+                <div class="cards">
+                    <div class="card"><h3>客户数</h3><p class="number" id="customerProfitCount">0</p></div>
+                    <div class="card"><h3>销售总成本</h3><p class="number" id="customerProfitCost">¥0.00</p></div>
+                    <div class="card"><h3>销售总金额</h3><p class="number" id="customerProfitRevenue">¥0.00</p></div>
+                    <div class="card"><h3>销售总利润</h3><p class="number income" id="customerProfitTotal">¥0.00</p></div>
+                    <div class="card"><h3>平均毛利率</h3><p class="number" id="customerProfitMargin">0%</p></div>
+                </div>
+                <h3 style="margin-top:24px">客户汇总</h3>
+                <table class="data-table">
+                    <thead><tr><th>客户</th><th>销售单数</th><th>物品数</th><th>成本</th><th>销售额</th><th>利润</th><th>毛利率</th></tr></thead>
+                    <tbody id="customerProfitList"></tbody>
+                </table>
+                <h3 style="margin-top:24px">品类汇总</h3>
+                <table class="data-table">
+                    <thead><tr><th>品类</th><th>明细数</th><th>数量</th><th>花费/成本</th><th>销售额</th><th>利润</th><th>毛利率</th></tr></thead>
+                    <tbody id="customerProfitCategoryList"></tbody>
+                </table>
+                <h3 style="margin-top:24px">单品利润排行</h3>
+                <table class="data-table">
+                    <thead><tr><th>品名</th><th>品类</th><th>次数</th><th>数量</th><th>成本</th><th>销售额</th><th>利润</th><th>毛利率</th></tr></thead>
+                    <tbody id="customerProfitItemList"></tbody>
+                </table>
+                <h3 style="margin-top:24px">客户销售明细</h3>
+                <table class="data-table">
+                    <thead><tr><th>客户</th><th>单号</th><th>日期</th><th>物品数</th><th>成本</th><th>销售额</th><th>利润</th><th>毛利率</th></tr></thead>
+                    <tbody id="customerProfitDetailList"></tbody>
+                </table>
+            </section>
+
+            <!-- 账单统计 -->
+            <section id="finance" class="page">
+                <div class="page-header">
+                    <h2>账单统计</h2>
+                    <div class="page-actions">
+                        <button class="btn" onclick="Finance.exportStatement()">📊 导出对账单</button>
+                        <button class="btn btn-primary" onclick="FinanceModal.open()">+ 记一笔</button>
+                    </div>
+                </div>
+                <div class="finance-summary">
+                    <div class="card">
+                        <h3>累计采购支出</h3>
+                        <p class="number expense" id="totalPurchase">¥0.00</p>
+                    </div>
+                    <div class="card">
+                        <h3>累计领用金额</h3>
+                        <p class="number" id="totalOutbound">¥0.00</p>
+                    </div>
+                    <div class="card">
+                        <h3>其他支出</h3>
+                        <p class="number expense" id="totalOtherExpense">¥0.00</p>
+                    </div>
+                </div>
+                <h3 style="margin-top:24px">收支明细</h3>
+                <table class="data-table">
+                    <thead><tr><th>日期</th><th>类型</th><th>类别</th><th>金额</th><th>备注</th><th>操作</th></tr></thead>
+                    <tbody id="financeList"></tbody>
+                </table>
+            </section>
+
+            <!-- 数据备份 -->
+            <section id="backup" class="page">
+                <h2>数据备份</h2>
+                <div class="cards">
+                    <div class="card">
+                        <h3>自动备份状态</h3>
+                        <p style="color:#888;margin:12px 0;font-size:13px;">每月首次打开系统时自动备份</p>
+                        <div id="autoBackupStatus" style="margin:12px 0;padding:10px 14px;background:#f6ffed;border-radius:4px;font-size:13px;">加载中...</div>
+                        <button class="btn btn-primary" onclick="Backup.manualBackup()">📦 立即备份</button>
+                    </div>
+                    <div class="card">
+                        <h3>导出数据</h3>
+                        <p style="color:#888;margin:12px 0;font-size:13px;">将所有数据导出为JSON文件</p>
+                        <button class="btn btn-primary" onclick="Backup.exportData()">📥 导出数据</button>
+                    </div>
+                    <div class="card">
+                        <h3>导入数据</h3>
+                        <p style="color:#888;margin:12px 0;font-size:13px;">从JSON文件恢复数据</p>
+                        <input type="file" id="importFile" accept=".json" onchange="Backup.importData(this)" style="display:none">
+                        <button class="btn btn-primary" onclick="document.getElementById('importFile').click()">📤 导入数据</button>
+                    </div>
+                    <div class="card">
+                        <h3>清空数据</h3>
+                        <p style="color:#888;margin:12px 0;font-size:13px;">⚠️ 危险操作！将删除所有数据</p>
+                        <button class="btn btn-danger" onclick="Backup.clearAll()">🗑️ 清空所有数据</button>
+                    </div>
+                </div>
+                <div id="importResult" style="margin-top:20px;padding:16px;background:#fff;border-radius:8px;display:none"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ========== 模态框 ========== -->
+
+    <!-- 物品模态框 -->
+    <div id="productModal" class="modal" data-click-outside="false">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="productModalTitle">添加物品</h3>
+                <button class="close" onclick="Modals.close('productModal')">&times;</button>
+            </div>
+            <form id="productForm" onsubmit="ProductModal.save(event)">
+                <input type="hidden" id="productId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>物品编号</label>
+                        <input type="text" id="productCode" required>
+                    </div>
+                    <div class="form-group">
+                        <label>物品名称</label>
+                        <input type="text" id="productName" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>规格型号</label>
+                        <input type="text" id="productSpec">
+                    </div>
+                    <div class="form-group">
+                        <label>单位</label>
+                        <input type="text" id="productUnit" placeholder="件/个/箱/斤/包" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>采购单价 (¥) <small style="color:#888">可空，入库时自动更新</small></label>
+                        <input type="number" id="productCost" step="0.01" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>上次销售单价 (¥)</label>
+                        <input type="number" id="productLastSalePrice" step="0.01" min="0" value="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>初始库存</label>
+                        <input type="number" id="productStock" step="0.01" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>库存预警线</label>
+                        <input type="number" id="productAlert" step="0.01" min="0" value="10">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>专属部门 <small style="color:#888">不选则为通用物品</small></label>
+                    <div class="dept-checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="productDept" value="食堂"> 食堂</label>
+                        <label class="checkbox-label"><input type="checkbox" name="productDept" value="保洁"> 保洁</label>
+                        <label class="checkbox-label"><input type="checkbox" name="productDept" value="办公"> 办公</label>
+                        <label class="checkbox-label"><input type="checkbox" name="productDept" value="维修"> 维修</label>
+                        <label class="checkbox-label"><input type="checkbox" name="productDept" value="酒店"> 酒店</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="Modals.close('productModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 供应商模态框 -->
+    <div id="supplierModal" class="modal" data-click-outside="false">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="supplierModalTitle">添加供应商</h3>
+                <button class="close" onclick="Modals.close('supplierModal')">&times;</button>
+            </div>
+            <form id="supplierForm" onsubmit="SupplierModal.save(event)">
+                <input type="hidden" id="supplierId">
+                <div class="form-row">
+                    <div class="form-group"><label>编号</label><input type="text" id="supplierCode" required></div>
+                    <div class="form-group"><label>供应商名称</label><input type="text" id="supplierName" required></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>联系人</label><input type="text" id="supplierContact"></div>
+                    <div class="form-group"><label>联系电话</label><input type="text" id="supplierPhone"></div>
+                </div>
+                <div class="form-group"><label>地址</label><input type="text" id="supplierAddress"></div>
+                <div class="form-group"><label>备注</label><input type="text" id="supplierNote"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="Modals.close('supplierModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 客户模态框 -->
+    <div id="customerModal" class="modal" data-click-outside="false">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="customerModalTitle">添加客户</h3>
+                <button class="close" onclick="Modals.close('customerModal')">&times;</button>
+            </div>
+            <form id="customerForm" onsubmit="CustomerModal.save(event)">
+                <input type="hidden" id="customerId">
+                <div class="form-row">
+                    <div class="form-group"><label>编号</label><input type="text" id="customerCode" required></div>
+                    <div class="form-group"><label>客户名称</label><input type="text" id="customerName" required></div>
+                </div>
+                <div class="form-group"><label>公司抬头 <small style="color:#888">打印单据时显示</small></label><input type="text" id="customerCompany"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>联系电话</label><input type="text" id="customerPhone"></div>
+                    <div class="form-group"><label>地址</label><input type="text" id="customerAddress"></div>
+                </div>
+                <div class="form-group"><label>备注</label><input type="text" id="customerNote"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="Modals.close('customerModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 采购单模态框 -->
+    <div id="purchaseModal" class="modal" data-click-outside="false">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="purchaseModalTitle">新建采购单</h3>
+                <button class="close" onclick="Modals.close('purchaseModal')">&times;</button>
+            </div>
+            <form id="purchaseForm" onsubmit="PurchaseModal.save(event)">
+                <input type="hidden" id="purchaseId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>供应商</label>
+                        <select id="purchaseSupplier" required>
+                            <option value="">选择供应商</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>日期</label>
+                        <input type="date" id="purchaseDate" required>
+                    </div>
+                </div>
+
+                <div class="items-section">
+                    <div class="items-header">
+                        <h4>采购物品</h4>
+                        <div class="items-actions">
+                            <button type="button" class="btn btn-sm" onclick="PurchaseModal.showProductSelector()">+ 添加物品</button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="QuickProductModal.open()">+ 新增物品</button>
+                        </div>
+                    </div>
+                    <table class="items-table" id="purchaseItemsTable">
+                        <thead><tr><th>物品</th><th>规格</th><th>单位</th><th>数量</th><th>单价</th><th>小计</th><th>操作</th></tr></thead>
+                        <tbody id="purchaseItemsBody"></tbody>
+                    </table>
+                    <div class="total-row">合计：<span id="purchaseTotal">¥0.00</span></div>
+                </div>
+
+                <!-- 自动出库选项 -->
+                <div class="auto-options">
+                    <label class="checkbox-label" style="font-size:14px;">
+                        <input type="checkbox" id="autoOutboundCheck" onchange="PurchaseModal.toggleAutoOutbound()">
+                        <strong>同时生成部门出库单</strong>
+                    </label>
+                    <div id="autoOutboundOptions" style="display:none;margin-top:12px;padding:12px;background:#f8f9fa;border-radius:6px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>出库部门</label>
+                                <select id="autoOutboundDept">
+                                    <option value="">选择部门</option>
+                                    <option value="食堂">食堂</option>
+                                    <option value="保洁">保洁</option>
+                                    <option value="办公">办公</option>
+                                    <option value="维修">维修</option>
+                                    <option value="酒店">酒店</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>领用人</label>
+                                <input type="text" id="autoOutboundPerson" placeholder="选填">
+                            </div>
+                        </div>
+                        <div id="autoOutboundPrices"></div>
+                    </div>
+                </div>
+
+                <div class="auto-options" style="margin-top:12px;">
+                    <label class="checkbox-label" style="font-size:14px;">
+                        <input type="checkbox" id="autoSalesCheck" onchange="PurchaseModal.toggleAutoSales()">
+                        <strong>同时生成销售出库单</strong>
+                    </label>
+                    <div id="autoSalesOptions" style="display:none;margin-top:12px;padding:12px;background:#f8f9fa;border-radius:6px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>选择客户</label>
+                                <select id="autoSalesCustomer" onchange="PurchaseModal.onSalesCustomerChange()">
+                                    <option value="">选择客户</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>销售日期</label>
+                                <input type="date" id="autoSalesDate">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>抬头公司名称</label>
+                                <input type="text" id="autoSalesCompany" placeholder="打印时显示">
+                            </div>
+                            <div class="form-group">
+                                <label>客户名称</label>
+                                <input type="text" id="autoSalesCustomerName" placeholder="可手动输入">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>联系电话</label>
+                            <input type="text" id="autoSalesPhone">
+                        </div>
+                        <div id="autoSalesPrices"></div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="Modals.close('purchaseModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">保存入库</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 采购单物品选择器 -->
+    <div id="purchaseProductSelector" class="modal" data-click-outside="false">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>选择采购物品</h3>
+                <button class="close" onclick="Modals.close('purchaseProductSelector')">&times;</button>
+            </div>
+            <div style="padding:16px 20px;">
+                <input type="text" id="purchaseProductSearch" placeholder="搜索物品名称、编号..." oninput="PurchaseModal.filterProducts()" style="width:100%;padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;">
+                <div id="purchaseProductSelectorList" style="margin-top:12px;max-height:400px;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="Modals.close('purchaseProductSelector')">取消</button>
+                <button type="button" class="btn btn-primary" onclick="PurchaseModal.confirmProductSelect()">确认添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 快速添加物品模态框 -->
+    <div id="quickProductModal" class="modal" data-click-outside="false">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>快速添加物品</h3>
+                <button class="close" onclick="Modals.close('quickProductModal')">&times;</button>
+            </div>
+            <form id="quickProductForm" onsubmit="QuickProductModal.save(event)">
+                <div class="form-row">
+                    <div class="form-group"><label>编号</label><input type="text" id="quickProductCode" required></div>
+                    <div class="form-group"><label>名称</label><input type="text" id="quickProductName" required></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>规格</label><input type="text" id="quickProductSpec"></div>
+                    <div class="form-group"><label>单位</label><input type="text" id="quickProductUnit" required></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>采购单价</label><input type="number" id="quickProductCost" step="0.01" min="0" value="0"></div>
+                    <div class="form-group"><label>预警线</label><input type="number" id="quickProductAlert" step="0.01" min="0" value="10"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="Modals.close('quickProductModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">保存并选中</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 领用单模态框 -->
+    <div id="outboundModal" class="modal" data-click-outside="false">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="outboundModalTitle">新建领用单</h3>
+                <button class="close" onclick="Modals.close('outboundModal')">&times;</button>
+            </div>
+            <form id="outboundForm" onsubmit="OutboundModal.save(event)">
+                <input type="hidden" id="outboundId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>领用部门 <span style="color:#e94560">*</span></label>
+                        <select id="outboundDept" required onchange="OutboundModal.onDeptChange()">
+                            <option value="">选择部门</option>
+                            <option value="食堂">食堂</option>
+                            <option value="保洁">保洁</option>
+                            <option value="办公">办公</option>
+                            <option value="维修">维修</option>
+                            <option value="酒店">酒店</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>领用人</label>
+                        <input type="text" id="outboundPerson" placeholder="选填">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>日期</label>
+                    <input type="date" id="outboundDate" required>
+                </div>
+
+                <div class="items-section">
+                    <div class="items-header">
+                        <h4>领用物品</h4>
+                        <button type="button" class="btn btn-sm" onclick="OutboundModal.showProductSelector()">+ 添加物品</button>
+                    </div>
+                    <table class="items-table" id="outboundItemsTable">
+                        <thead><tr><th>物品</th><th>规格</th><th>单位</th><th>数量</th><th>单价</th><th>小计</th><th>操作</th></tr></thead>
+                        <tbody id="outboundItemsBody"></tbody>
+                    </table>
+                    <div class="total-row">合计：<span id="outboundTotal">¥0.00</span></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="Modals.close('outboundModal')">取消</button>
+                    <button type="submit" class="btn btn-primary" id="outboundSaveBtn">保存出库</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 领用单物品选择器 -->
+    <div id="outboundProductSelector" class="modal" data-click-outside="false">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>选择领用物品</h3>
+                <button class="close" onclick="Modals.close('outboundProductSelector')">&times;</button>
+            </div>
+            <div style="padding:16px 20px;">
+                <input type="text" id="outboundProductSearch" placeholder="搜索物品..." oninput="OutboundModal.filterProducts()" style="width:100%;padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;">
+                <div id="outboundProductSelectorList" style="margin-top:12px;max-height:400px;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="Modals.close('outboundProductSelector')">取消</button>
+                <button type="button" class="btn btn-primary" onclick="OutboundModal.confirmProductSelect()">确认添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 领用单查看 -->
+    <div id="outboundDetailModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>查看领用单</h3>
+                <button class="close" onclick="Modals.close('outboundDetailModal')">&times;</button>
+            </div>
+            <div id="outboundDetailContent" style="padding:20px;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="Modals.close('outboundDetailModal')">关闭</button>
+                <button type="button" class="btn" onclick="OutboundDetailModal.print()">打印</button>
+                <button type="button" class="btn btn-primary" onclick="OutboundDetailModal.edit()">编辑</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 销售单查看模态框 -->
+    <div id="salesDetailModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>查看销售出库单</h3>
+                <button class="close" onclick="Modals.close('salesDetailModal')">&times;</button>
+            </div>
+            <div id="salesDetailContent" style="padding:20px;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="Modals.close('salesDetailModal')">关闭</button>
+                <button type="button" class="btn" onclick="SalesDetailModal.downloadPurchaseList()">下载采购单</button>
+                <button type="button" class="btn" onclick="SalesDetailModal.print()">打印</button>
+                <button type="button" class="btn btn-primary" onclick="SalesDetailModal.edit()">编辑</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 销售单模态框 -->
+    <div id="printSettingsModal" class="modal" data-click-outside="false">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>打印设置</h3>
+                <button class="close" onclick="Modals.close('printSettingsModal')">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <h4 style="margin-bottom:12px;">销售单：Epson 610K 二等分纸</h4>
+                <div class="form-row">
+                    <div class="form-group"><label>纸宽 mm</label><input type="number" id="printSalesWidth" step="0.5"></div>
+                    <div class="form-group"><label>纸高 mm</label><input type="number" id="printSalesHeight" step="0.5"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>上边距 mm</label><input type="number" id="printSalesMarginTop" step="0.5"></div>
+                    <div class="form-group"><label>右边距 mm</label><input type="number" id="printSalesMarginRight" step="0.5"></div>
+                    <div class="form-group"><label>下边距 mm</label><input type="number" id="printSalesMarginBottom" step="0.5"></div>
+                    <div class="form-group"><label>左边距 mm</label><input type="number" id="printSalesMarginLeft" step="0.5"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>表格字号 pt</label><input type="number" id="printSalesFontSize" step="0.1"></div>
+                    <div class="form-group"><label>行高 mm</label><input type="number" id="printSalesRowHeight" step="0.1"></div>
+                </div>
+                <h4 style="margin:18px 0 12px;">采购单：HP A4</h4>
+                <div class="form-row">
+                    <div class="form-group"><label>A4 边距 mm</label><input type="number" id="printPurchaseMargin" step="0.5"></div>
+                    <div class="form-group"><label>表格字号 pt</label><input type="number" id="printPurchaseFontSize" step="0.1"></div>
+                </div>
+                <p style="font-size:13px;color:#666;line-height:1.6;margin-top:8px;">打印机和单面/双面由浏览器打印窗口控制。采购单打印时请选 HP、A4、单面打印。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="Printer.resetPrintSettings()">恢复默认</button>
+                <button type="button" class="btn" onclick="Modals.close('printSettingsModal')">取消</button>
+                <button type="button" class="btn btn-primary" onclick="Printer.savePrintSettings()">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="salesModal" class="modal" data-click-outside="false">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="salesModalTitle">新建销售单</h3>
+                <button class="close" onclick="Modals.close('salesModal')">&times;</button>
+            </div>
+            <form id="salesForm" onsubmit="SalesModal.save(event)">
+                <input type="hidden" id="salesId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>选择客户</label>
+                        <select id="salesCustomerSelect" onchange="SalesModal.onCustomerChange()">
+                            <option value="">选择客户</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>日期</label>
+                        <input type="date" id="salesDate" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>抬头公司名称 <small style="color:#888">打印时显示为单据标题</small></label>
+                    <input type="text" id="salesCompany" placeholder="如：西安禾润佳商贸有限公司">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>客户名称</label>
+                        <input type="text" id="salesCustomer" required>
+                    </div>
+                    <div class="form-group">
+                        <label>联系电话</label>
+                        <input type="text" id="salesPhone">
+                    </div>
+                </div>
+
+                <div class="items-section">
+                    <div class="items-header">
+                        <h4>销售物品</h4>
+                        <div class="items-actions">
+                            <button type="button" class="btn btn-sm" onclick="SalesModal.showProductSelector()">+ 添加物品</button>
+                            <button type="button" class="btn btn-sm" onclick="SalesModal.quickAddProduct()">+ 新物品</button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="SalesModal.showPurchasePicker()">从入库单选择</button>
+                        </div>
+                    </div>
+                    <table class="items-table" id="salesItemsTable">
+                        <thead><tr><th>物品</th><th>规格</th><th>单位</th><th>数量</th><th>单价</th><th>小计</th><th>操作</th></tr></thead>
+                        <tbody id="salesItemsBody"></tbody>
+                    </table>
+                    <div class="total-row">合计：<span id="salesTotal">¥0.00</span></div>
+                </div>
+
+                <div class="form-group" style="margin-top:16px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="salesShowHandlers" onchange="SalesModal.toggleHandlers()">
+                        打印显示经手人、出库人
+                    </label>
+                </div>
+                <div id="salesHandlerInputs" style="display:none;">
+                    <div class="form-row">
+                        <div class="form-group"><label>经手人</label><input type="text" id="salesHandler"></div>
+                        <div class="form-group"><label>出库人</label><input type="text" id="salesIssuer"></div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="Modals.close('salesModal')">取消</button>
+                    <button type="button" class="btn" onclick="SalesModal.saveAndPrint()">保存并打开销售单打印</button>
+                    <button type="submit" class="btn btn-primary">保存销售单</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 销售单物品选择器 -->
+    <div id="salesProductSelector" class="modal" data-click-outside="false">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>选择销售物品</h3>
+                <button class="close" onclick="Modals.close('salesProductSelector')">&times;</button>
+            </div>
+            <div style="padding:16px 20px;">
+                <input type="text" id="salesProductSearch" placeholder="搜索物品..." oninput="SalesModal.filterProducts()" style="width:100%;padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;">
+                <div id="salesProductSelectorList" style="margin-top:12px;max-height:400px;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="Modals.close('salesProductSelector')">取消</button>
+                <button type="button" class="btn btn-primary" onclick="SalesModal.confirmProductSelect()">确认添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 从入库单选择 -->
+    <div id="purchasePickerModal" class="modal" data-click-outside="false">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>从入库单选择物品</h3>
+                <button class="close" onclick="Modals.close('purchasePickerModal')">&times;</button>
+            </div>
+            <div style="padding:16px 20px;">
+                <input type="text" id="purchasePickerSearch" placeholder="搜索采购单..." oninput="SalesModal.filterPurchasePicker()" style="width:100%;padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;">
+                <div id="purchasePickerList" style="margin-top:12px;max-height:400px;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="Modals.close('purchasePickerModal')">取消</button>
+                <button type="button" class="btn btn-primary" onclick="SalesModal.confirmPurchasePicker()">确认添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 财务记账模态框 -->
+    <div id="financeModal" class="modal" data-click-outside="false">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="financeModalTitle">记一笔</h3>
+                <button class="close" onclick="Modals.close('financeModal')">&times;</button>
+            </div>
+            <form id="financeForm" onsubmit="FinanceModal.save(event)">
+                <input type="hidden" id="financeId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>日期</label>
+                        <input type="date" id="financeDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>类型</label>
+                        <select id="financeType" required>
+                            <option value="expense">支出</option>
+                            <option value="income">收入</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>类别</label>
+                    <input type="text" id="financeCategory" placeholder="如：水电费、维修费">
+                </div>
+                <div class="form-group">
+                    <label>金额 (¥)</label>
+                    <input type="number" id="financeAmount" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>备注</label>
+                    <input type="text" id="financeNote">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="Modals.close('financeModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Excel导入物品模态框 -->
+    <div id="excelImportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Excel批量导入物品</h3>
+                <button class="close" onclick="Modals.close('excelImportModal')">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <p style="color:#666;margin-bottom:12px;">支持 .csv 格式，列名会自动识别：</p>
+                <table class="data-table" style="margin-bottom:16px;">
+                    <thead><tr><th>列名</th><th>说明</th><th>必填</th></tr></thead>
+                    <tbody>
+                        <tr><td>编号</td><td>物品编号，如 A001</td><td>是</td></tr>
+                        <tr><td>名称</td><td>物品名称</td><td>是</td></tr>
+                        <tr><td>规格</td><td>规格型号</td><td>否</td></tr>
+                        <tr><td>单位</td><td>件/个/箱/斤</td><td>是</td></tr>
+                        <tr><td>采购单价</td><td>单价可为空</td><td>否</td></tr>
+                        <tr><td>初始库存</td><td>默认0</td><td>否</td></tr>
+                        <tr><td>预警线</td><td>默认10</td><td>否</td></tr>
+                        <tr><td>专属部门</td><td>如：食堂,办公</td><td>否</td></tr>
+                    </tbody>
+                </table>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn" onclick="ExcelImport.downloadProductTemplate()">📄 下载模板</button>
+                    <label class="btn btn-primary" style="cursor:pointer;">
+                        📁 选择Excel文件
+                        <input type="file" id="excelImportFile" accept=".csv" onchange="ExcelImport.importProducts(this)" style="display:none;">
+                    </label>
+                </div>
+                <div id="excelImportResult" style="margin-top:12px;padding:10px;border-radius:4px;display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 销售单售价导入模态框 -->
+    <div id="salesPriceImportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>从销售单提取客户售价</h3>
+                <button class="close" onclick="Modals.close('salesPriceImportModal')">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <p style="color:#666;margin-bottom:12px;">上传导出的销售单 Excel，系统会自动提取客户、货品名称、单位、单价，更新各客户自己的售价。</p>
+                <table class="data-table" style="margin-bottom:16px;">
+                    <thead><tr><th>识别内容</th><th>说明</th></tr></thead>
+                    <tbody>
+                        <tr><td>客户</td><td>从“客户：xxx”行自动识别</td></tr>
+                        <tr><td>货品名称、数量、单位、单价、金额</td><td>从销售单明细表头自动识别；单价为空时可用金额/数量反算</td></tr>
+                        <tr><td>客户售价</td><td>按“客户 + 商品 + 单位”保存，下次该客户下单会优先使用</td></tr>
+                    </tbody>
+                </table>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <input type="text" id="salesPriceImportFallbackCustomer" placeholder="客户识别不到时使用，可不填" style="min-width:260px;">
+                    <label class="btn btn-primary" style="cursor:pointer;">
+                        选择销售单Excel
+                        <input type="file" id="salesPriceImportFile" accept=".xlsx,.xlsm" onchange="ExcelImport.importSalesPrices(this)" style="display:none;">
+                    </label>
+                </div>
+                <div id="salesPriceImportResult" style="margin-top:12px;padding:10px;border-radius:4px;display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 领用单Excel导入模态框 -->
+    <div id="outboundImportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Excel批量导入领用单</h3>
+                <button class="close" onclick="Modals.close('outboundImportModal')">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <p style="color:#666;margin-bottom:12px;">支持 .csv 格式，按"日期+部门+领用人"自动分组：</p>
+                <table class="data-table" style="margin-bottom:16px;">
+                    <thead><tr><th>列名</th><th>说明</th><th>必填</th></tr></thead>
+                    <tbody>
+                        <tr><td>日期</td><td>领用日期</td><td>是</td></tr>
+                        <tr><td>部门</td><td>领用部门</td><td>是</td></tr>
+                        <tr><td>领用人</td><td>姓名</td><td>否</td></tr>
+                        <tr><td>物品编号</td><td>可空，按名称匹配</td><td>否</td></tr>
+                        <tr><td>物品名称</td><td>物品名称</td><td>是</td></tr>
+                        <tr><td>数量</td><td>领用数量</td><td>是</td></tr>
+                        <tr><td>单价</td><td>可空，使用当前单价</td><td>否</td></tr>
+                    </tbody>
+                </table>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn" onclick="ExcelImport.downloadOutboundTemplate()">📄 下载模板</button>
+                    <label class="btn btn-primary" style="cursor:pointer;">
+                        📁 选择Excel文件
+                        <input type="file" id="outboundImportFile" accept=".csv" onchange="ExcelImport.importOutbounds(this)" style="display:none;">
+                    </label>
+                </div>
+                <div id="outboundImportResult" style="margin-top:12px;padding:10px;border-radius:4px;display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 采购单Excel导入模态框 -->
+    <div id="purchaseImportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Excel批量导入采购单</h3>
+                <button class="close" onclick="Modals.close('purchaseImportModal')">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <p style="color:#666;margin-bottom:12px;">支持 .csv 格式，按"日期+供应商"自动分组：</p>
+                <table class="data-table" style="margin-bottom:16px;">
+                    <thead><tr><th>列名</th><th>说明</th><th>必填</th></tr></thead>
+                    <tbody>
+                        <tr><td>日期</td><td>采购日期</td><td>是</td></tr>
+                        <tr><td>供应商</td><td>供应商名称</td><td>是</td></tr>
+                        <tr><td>物品编号</td><td>可空，自动创建新物品</td><td>否</td></tr>
+                        <tr><td>物品名称</td><td>物品名称</td><td>是</td></tr>
+                        <tr><td>规格</td><td>规格型号</td><td>否</td></tr>
+                        <tr><td>单位</td><td>单位</td><td>否（默认件）</td></tr>
+                        <tr><td>数量</td><td>采购数量</td><td>是</td></tr>
+                        <tr><td>单价</td><td>采购单价</td><td>否</td></tr>
+                    </tbody>
+                </table>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn" onclick="ExcelImport.downloadPurchaseTemplate()">📄 下载模板</button>
+                    <label class="btn btn-primary" style="cursor:pointer;">
+                        📁 选择Excel文件
+                        <input type="file" id="purchaseImportFile" accept=".csv" onchange="ExcelImport.importPurchases(this)" style="display:none;">
+                    </label>
+                </div>
+                <div id="purchaseImportResult" style="margin-top:12px;padding:10px;border-radius:4px;display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 酒店采购清单生成销售单 -->
+    <div id="hotelSalesImportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>酒店清单生成销售单</h3>
+                <button class="close" onclick="Modals.close('hotelSalesImportModal')">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <p style="color:#666;margin-bottom:12px;">可以直接粘贴酒店发来的文字清单，也支持酒店订单 .xlsx / .csv 文件。酒店清单只生成销售出库单，不进采购入库；库存里有的物品会扣库存，生鲜流转类不扣库存。</p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>销售日期</label>
+                        <input type="date" id="hotelSalesTextDate">
+                    </div>
+                    <div class="form-group">
+                        <label>供应商</label>
+                        <input type="text" id="hotelGrocerySupplier" value="西安禾润佳商贸有限公司">
+                    </div>
+                    <div class="form-group">
+                        <label>酒店名称</label>
+                        <select id="hotelSalesCustomerSelect" onchange="ExcelImport.onHotelCustomerChange()" style="margin-bottom:8px;">
+                            <option value="">选择客户</option>
+                        </select>
+                        <input type="text" id="hotelSalesTextCustomer" value="西安汉庭酒店（大明宫万达）">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>粘贴清单</label>
+                    <textarea id="hotelSalesText" rows="6" placeholder="例如：红薯10斤，炒面7斤，鸡蛋十盘，一桶生抽，西红柿6斤" style="width:100%;padding:10px 12px;border:1px solid #d9d9d9;border-radius:4px;resize:vertical;"></textarea>
+                </div>
+                <div style="display:flex;gap:10px;margin-bottom:20px;">
+                    <button class="btn" onclick="ExcelImport.downloadHotelGroceryPurchaseList()">下载采购单</button>
+                    <button class="btn btn-primary" onclick="ExcelImport.syncHotelGroceryText()">生成销售单</button>
+                    <button class="btn" onclick="ExcelImport.importHotelSalesText()">只生成销售单</button>
+                    <button class="btn" onclick="document.getElementById('hotelSalesText').value = ''">清空</button>
+                </div>
+                <table class="data-table" style="margin-bottom:16px;">
+                    <thead><tr><th>列名</th><th>说明</th><th>必填</th></tr></thead>
+                    <tbody>
+                        <tr><td>日期</td><td>销售日期，空则为今天</td><td>否</td></tr>
+                        <tr><td>酒店名称</td><td>客户名称，空则为酒店</td><td>否</td></tr>
+                        <tr><td>物品编号</td><td>可空，优先按编号匹配</td><td>否</td></tr>
+                        <tr><td>物品名称</td><td>清单物品名称</td><td>是</td></tr>
+                        <tr><td>规格</td><td>用于辅助匹配</td><td>否</td></tr>
+                        <tr><td>单位</td><td>用于辅助匹配</td><td>否</td></tr>
+                        <tr><td>数量</td><td>销售数量</td><td>是</td></tr>
+                    </tbody>
+                </table>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn" onclick="ExcelImport.downloadHotelSalesTemplate()">下载模板</button>
+                    <label class="btn btn-primary" style="cursor:pointer;">
+                        选择清单文件
+                        <input type="file" id="hotelSalesImportFile" accept=".csv,.xlsx" onchange="ExcelImport.importHotelSalesFile(this)" style="display:none;">
+                    </label>
+                </div>
+                <div id="hotelSalesImportResult" style="margin-top:12px;padding:10px;border-radius:4px;display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 打印区域 -->
+    <div id="printArea" class="print-only"></div>
+
+    <!-- 提示消息 -->
+    <div id="toast" class="toast"></div>
+
+    <script src="app.js?v=20260805-sales-price-import"></script>
+</body>
+</html>

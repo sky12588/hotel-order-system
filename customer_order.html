@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>酒店下单</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f6f7f9;
+            color: #1f2937;
+        }
+        .page {
+            max-width: 720px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background: #fff;
+            padding: 20px 18px 28px;
+        }
+        .header {
+            padding: 8px 0 18px;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 18px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            line-height: 1.25;
+            letter-spacing: 0;
+        }
+        .sub {
+            margin-top: 8px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        label {
+            display: block;
+            font-weight: 700;
+            margin: 18px 0 8px;
+            font-size: 15px;
+        }
+        select, input, textarea, button {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font: inherit;
+            color: inherit;
+        }
+        select, input {
+            height: 46px;
+            padding: 0 12px;
+            background: #fff;
+        }
+        textarea {
+            min-height: 220px;
+            resize: vertical;
+            padding: 12px;
+            line-height: 1.55;
+        }
+        button {
+            height: 50px;
+            margin-top: 20px;
+            border: 0;
+            background: #1677ff;
+            color: #fff;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .msg {
+            display: none;
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .ok {
+            display: block;
+            background: #ecfdf3;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        .err {
+            display: block;
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        .hint {
+            color: #6b7280;
+            font-size: 13px;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+        .edit-notice {
+            display: none;
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            font-weight: 700;
+            line-height: 1.45;
+        }
+        .locked-customer {
+            display: none;
+            min-height: 46px;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: #f9fafb;
+            font-weight: 800;
+            line-height: 1.4;
+        }
+        .panel {
+            margin-top: 24px;
+            padding-top: 18px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .panel h2 {
+            margin: 0 0 12px;
+            font-size: 18px;
+            letter-spacing: 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .secondary {
+            margin-top: 0;
+            background: #374151;
+        }
+        .ghost {
+            margin-top: 0;
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid #d1d5db;
+        }
+        .history {
+            margin-top: 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .history-row {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .history-row:last-child {
+            border-bottom: 0;
+        }
+        .history-title {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        .history-items {
+            color: #4b5563;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .history-group {
+            margin-top: 6px;
+        }
+        .history-group:first-child {
+            margin-top: 0;
+        }
+        .history-group-title {
+            display: inline-block;
+            min-width: 42px;
+            margin-right: 4px;
+            color: #111827;
+            font-weight: 800;
+        }
+        .history-group-list {
+            color: #4b5563;
+        }
+        .preview {
+            display: none;
+            margin-top: 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .preview-head {
+            padding: 12px;
+            background: #f9fafb;
+            font-weight: 800;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .preview-table th,
+        .preview-table td {
+            padding: 9px 8px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+        }
+        .preview-table th {
+            background: #f3f4f6;
+            font-weight: 800;
+        }
+        .confirm-box {
+            display: none;
+            margin-top: 12px;
+            padding: 12px;
+            border: 1px solid #bfdbfe;
+            background: #eff6ff;
+            border-radius: 8px;
+        }
+        .confirm-box label {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin: 0;
+            font-weight: 700;
+        }
+        .confirm-box input {
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            flex: 0 0 auto;
+        }
+        .modal-mask {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(17, 24, 39, 0.5);
+            z-index: 20;
+            padding: 18px;
+            overflow: auto;
+        }
+        .modal {
+            max-width: 760px;
+            margin: 24px auto;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .modal-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 800;
+        }
+        .modal-body {
+            padding: 14px;
+        }
+        .edit-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .edit-table th,
+        .edit-table td {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 8px 6px;
+        }
+        .edit-table input {
+            height: 38px;
+            padding: 0 8px;
+        }
+        .small-btn {
+            height: 38px;
+            margin-top: 0;
+            padding: 0 10px;
+            font-size: 13px;
+        }
+        .danger {
+            background: #dc2626;
+        }
+        .modal-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            padding: 14px;
+            border-top: 1px solid #e5e7eb;
+        }
+        @media (max-width: 520px) {
+            .grid, .actions {
+                grid-template-columns: 1fr;
+            }
+            .modal-actions { grid-template-columns: 1fr; }
+            .edit-table { font-size: 13px; }
+            .edit-table th:nth-child(1),
+            .edit-table td:nth-child(1) { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <section class="header">
+            <h1>酒店下单</h1>
+            <div class="sub">西安禾润佳商贸有限公司</div>
+        </section>
+
+        <form id="orderForm">
+            <label for="customerId">酒店</label>
+            <div id="lockedCustomer" class="locked-customer"></div>
+            <select id="customerId" required>
+                <option value="">请选择酒店</option>
+            </select>
+
+            <label for="orderDate">日期</label>
+            <input id="orderDate" type="date" required>
+
+            <label for="orderText">清单</label>
+            <textarea id="orderText" required placeholder="例：土豆20斤，鸡蛋10盘，西红柿5斤，前台水果 圣女果2斤，油桃3斤"></textarea>
+            <div class="hint">提交前请先识别预览并确认，避免漏单、错单。</div>
+            <div id="editModeNotice" class="edit-notice">正在编辑今日订单：提交后会覆盖今天已提交的订单。</div>
+
+            <button id="previewBtn" class="secondary" type="button">识别并预览</button>
+            <div id="previewBox" class="preview"></div>
+            <div id="confirmBox" class="confirm-box">
+                <label>
+                    <input id="confirmOrder" type="checkbox">
+                    <span>我已核对以上品名、数量和单位，确认提交订单。</span>
+                </label>
+            </div>
+            <button id="submitBtn" type="submit" disabled>确认提交订单</button>
+            <div id="message" class="msg"></div>
+        </form>
+
+        <section class="panel">
+            <h2>下单记录</h2>
+            <div class="grid">
+                <div>
+                    <label for="historyMode">范围</label>
+                    <select id="historyMode">
+                        <option value="day">按日</option>
+                        <option value="month">按月</option>
+                        <option value="year">按年</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="historyValue">日期</label>
+                    <input id="historyValue" type="date">
+                </div>
+            </div>
+            <div class="actions">
+                <button class="secondary" id="loadHistoryBtn" type="button">查看记录</button>
+                <button class="ghost" id="exportHistoryBtn" type="button">导出记录</button>
+                <button class="ghost" id="copyLastBtn" type="button">复制上次</button>
+                <button class="ghost" id="editTodayBtn" type="button">编辑今日</button>
+            </div>
+            <div id="historyMessage" class="msg"></div>
+            <div id="historyList" class="history" style="display:none;"></div>
+        </section>
+    </main>
+
+    <div id="lastOrderModal" class="modal-mask">
+        <div class="modal">
+            <div class="modal-head">
+                <span id="lastOrderTitle">复制上次下单</span>
+                <button id="closeLastOrderBtn" class="ghost small-btn" type="button">关闭</button>
+            </div>
+            <div class="modal-body">
+                <div class="hint">可直接修改品名、数量、单位，也可以删除或新增物品。</div>
+                <table class="edit-table">
+                    <thead>
+                        <tr><th>序号</th><th>品名</th><th>数量</th><th>单位</th><th>操作</th></tr>
+                    </thead>
+                    <tbody id="lastOrderItems"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button id="addLastItemBtn" class="ghost" type="button">添加物品</button>
+                <button id="applyLastOrderBtn" type="button">生成下单清单</button>
+                <button id="cancelLastOrderBtn" class="secondary" type="button">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(location.search);
+        const token = params.get('token') || '';
+        const fixedCustomerId = params.get('customerId') || '';
+        const apiHeaders = { 'Content-Type': 'application/json' };
+        if (token) apiHeaders['X-Order-Token'] = token;
+        let previewReady = false;
+        let editableLastItems = [];
+        let lastOrderEditorMode = 'copy';
+        let replaceTodayMode = false;
+
+        function today() {
+            const d = new Date();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${d.getFullYear()}-${m}-${day}`;
+        }
+
+        function showMessage(text, type) {
+            const el = document.getElementById('message');
+            el.textContent = text;
+            el.className = `msg ${type}`;
+        }
+
+        function showHistoryMessage(text, type) {
+            const el = document.getElementById('historyMessage');
+            el.textContent = text;
+            el.className = text ? `msg ${type}` : 'msg';
+        }
+
+        function scrollToHistory() {
+            const target = document.getElementById('historyMessage').textContent
+                ? document.getElementById('historyMessage')
+                : document.getElementById('historyList');
+            setTimeout(() => {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 80);
+        }
+
+        function selectedCustomerId() {
+            return document.getElementById('customerId').value;
+        }
+
+        function historyQuery() {
+            const mode = document.getElementById('historyMode').value;
+            const value = document.getElementById('historyValue').value || today();
+            const query = new URLSearchParams({
+                token,
+                customerId: selectedCustomerId(),
+                mode,
+                value
+            });
+            return query.toString();
+        }
+
+        function ensureCustomer() {
+            if (!selectedCustomerId()) throw new Error('请先选择酒店');
+        }
+
+        function refreshSubmitButtonLabel() {
+            document.getElementById('submitBtn').textContent = replaceTodayMode ? '确认更新今日订单' : '确认提交订单';
+        }
+
+        function setReplaceTodayMode(active) {
+            replaceTodayMode = Boolean(active);
+            const notice = document.getElementById('editModeNotice');
+            notice.style.display = replaceTodayMode ? 'block' : 'none';
+            if (replaceTodayMode) {
+                document.getElementById('orderDate').value = today();
+            }
+            refreshSubmitButtonLabel();
+        }
+
+        function resetPreview() {
+            previewReady = false;
+            document.getElementById('previewBox').style.display = 'none';
+            document.getElementById('previewBox').innerHTML = '';
+            document.getElementById('confirmBox').style.display = 'none';
+            document.getElementById('confirmOrder').checked = false;
+            document.getElementById('submitBtn').disabled = true;
+        }
+
+        function renderPreview(data) {
+            const rows = (data.items || []).map((item, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${item.name || ''}</td>
+                    <td>${item.quantity || ''}</td>
+                    <td>${item.unit || ''}</td>
+                    <td>${item.purchaseType || item.category || ''}</td>
+                </tr>
+            `).join('');
+            const unparsed = data.unparsed && data.unparsed.length
+                ? `<div class="msg err" style="display:block;margin:12px;">未识别：${data.unparsed.join('、')}</div>`
+                : '';
+            const corrected = data.correctedText && data.correctedText !== document.getElementById('orderText').value
+                ? `<div class="hint" style="padding:0 12px 12px;">已自动纠正常见错别字，请核对预览明细。</div>`
+                : '';
+            const box = document.getElementById('previewBox');
+            box.innerHTML = `
+                <div class="preview-head">请二次确认订单明细</div>
+                ${corrected}
+                <table class="preview-table">
+                    <thead><tr><th>序号</th><th>品名</th><th>数量</th><th>单位</th><th>类型</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                ${unparsed}
+            `;
+            box.style.display = 'block';
+            document.getElementById('confirmBox').style.display = 'block';
+            previewReady = true;
+            document.getElementById('submitBtn').disabled = !document.getElementById('confirmOrder').checked;
+        }
+
+        function saleItemsToEditable(sales) {
+            const rows = [];
+            (sales || []).forEach(sale => {
+                (sale.items || []).forEach(item => {
+                    rows.push({
+                        name: item.product_name || '',
+                        quantity: Number(item.quantity || 0),
+                        unit: item.product_unit || ''
+                    });
+                });
+            });
+            return rows;
+        }
+
+        function renderLastOrderEditor() {
+            const tbody = document.getElementById('lastOrderItems');
+            tbody.innerHTML = editableLastItems.map((item, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td><input data-field="name" data-index="${idx}" value="${item.name || ''}" placeholder="品名"></td>
+                    <td><input data-field="quantity" data-index="${idx}" type="number" step="0.01" min="0" value="${item.quantity || ''}" placeholder="数量"></td>
+                    <td><input data-field="unit" data-index="${idx}" value="${item.unit || ''}" placeholder="单位"></td>
+                    <td><button class="danger small-btn" type="button" data-delete-index="${idx}">删除</button></td>
+                </tr>
+            `).join('');
+            tbody.querySelectorAll('input').forEach(input => {
+                input.addEventListener('input', event => {
+                    const idx = Number(event.target.dataset.index);
+                    const field = event.target.dataset.field;
+                    editableLastItems[idx][field] = field === 'quantity' ? Number(event.target.value || 0) : event.target.value.trim();
+                });
+            });
+            tbody.querySelectorAll('[data-delete-index]').forEach(button => {
+                button.addEventListener('click', event => {
+                    const idx = Number(event.target.dataset.deleteIndex);
+                    editableLastItems.splice(idx, 1);
+                    renderLastOrderEditor();
+                });
+            });
+        }
+
+        function openLastOrderEditor(data, mode = 'copy') {
+            lastOrderEditorMode = mode;
+            editableLastItems = saleItemsToEditable(data.sales);
+            if (!editableLastItems.length && data.text) {
+                editableLastItems = data.text.split(/[，,、；;。\\n]+/).filter(Boolean).map(text => ({
+                    name: text,
+                    quantity: '',
+                    unit: ''
+                }));
+            }
+            document.getElementById('lastOrderTitle').textContent = mode === 'today'
+                ? `编辑今日订单 ${data.date || ''}`
+                : `复制 ${data.date || ''} 的下单`;
+            renderLastOrderEditor();
+            document.getElementById('lastOrderModal').style.display = 'block';
+        }
+
+        function closeLastOrderEditor() {
+            document.getElementById('lastOrderModal').style.display = 'none';
+        }
+
+        function editableItemsToText() {
+            return editableLastItems
+                .map(item => {
+                    const name = String(item.name || '').trim();
+                    const quantity = Number(item.quantity || 0);
+                    const unit = String(item.unit || '').trim();
+                    if (!name || quantity <= 0 || !unit) return '';
+                    const qtyText = Number.isInteger(quantity) ? String(quantity) : String(quantity);
+                    return `${name}${qtyText}${unit}`;
+                })
+                .filter(Boolean)
+                .join('，');
+        }
+
+        async function loadCustomers() {
+            const suffix = token ? `?token=${encodeURIComponent(token)}` : '';
+            const res = await fetch(`/api/public/customers${suffix}`, { headers: apiHeaders });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '客户读取失败');
+            const select = document.getElementById('customerId');
+            data.forEach(customer => {
+                const option = document.createElement('option');
+                option.value = customer.id;
+                option.textContent = customer.name;
+                select.appendChild(option);
+            });
+            if (fixedCustomerId) {
+                const customer = data.find(row => row.id === fixedCustomerId);
+                if (!customer) throw new Error('这个酒店专属链接无效，请联系商家重新获取');
+                select.value = fixedCustomerId;
+                select.style.display = 'none';
+                const locked = document.getElementById('lockedCustomer');
+                locked.textContent = customer.name;
+                locked.style.display = 'block';
+            }
+        }
+
+        document.getElementById('orderDate').value = today();
+        document.getElementById('historyValue').value = today();
+
+        document.getElementById('orderText').addEventListener('input', resetPreview);
+        document.getElementById('customerId').addEventListener('change', () => {
+            setReplaceTodayMode(false);
+            resetPreview();
+        });
+        document.getElementById('orderDate').addEventListener('change', () => {
+            if (document.getElementById('orderDate').value !== today()) setReplaceTodayMode(false);
+            resetPreview();
+        });
+        document.getElementById('confirmOrder').addEventListener('change', event => {
+            document.getElementById('submitBtn').disabled = !(previewReady && event.target.checked);
+        });
+
+        document.getElementById('previewBtn').addEventListener('click', async () => {
+            showMessage('', '');
+            try {
+                ensureCustomer();
+                const payload = {
+                    token,
+                    customerId: selectedCustomerId(),
+                    text: document.getElementById('orderText').value.trim()
+                };
+                const res = await fetch('/api/public/order-preview', {
+                    method: 'POST',
+                    headers: apiHeaders,
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '识别预览失败');
+                renderPreview(data);
+            } catch (error) {
+                resetPreview();
+                showMessage(error.message || '识别预览失败', 'err');
+            }
+        });
+
+        document.getElementById('historyMode').addEventListener('change', event => {
+            const input = document.getElementById('historyValue');
+            if (event.target.value === 'year') {
+                input.type = 'number';
+                input.min = '2020';
+                input.max = '2099';
+                input.value = new Date().getFullYear();
+            } else if (event.target.value === 'month') {
+                input.type = 'month';
+                input.value = today().slice(0, 7);
+            } else {
+                input.type = 'date';
+                input.value = today();
+            }
+        });
+
+        document.getElementById('orderForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = '提交中...';
+            showMessage('', '');
+            try {
+                if (!previewReady || !document.getElementById('confirmOrder').checked) {
+                    throw new Error('请先识别预览并勾选确认');
+                }
+                const payload = {
+                    token,
+                    customerId: document.getElementById('customerId').value,
+                    date: document.getElementById('orderDate').value,
+                    text: document.getElementById('orderText').value.trim(),
+                    confirmed: true
+                };
+                const url = replaceTodayMode ? '/api/public/today-order/replace' : '/api/public/hotel-order';
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: apiHeaders,
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '提交失败');
+                const unparsed = data.unparsed && data.unparsed.length ? `\n未识别：${data.unparsed.join('、')}` : '';
+                const prefix = replaceTodayMode ? `更新成功\n已覆盖今日旧单：${data.replacedOrders || 0} 张` : '提交成功';
+                showMessage(`${prefix}\n酒店：${data.customer}\n生成销售单：${data.created} 张\n明细：${data.items} 条${unparsed}`, 'ok');
+                document.getElementById('orderText').value = '';
+                setReplaceTodayMode(false);
+                resetPreview();
+                loadHistory().catch(() => {});
+            } catch (error) {
+                showMessage(error.message || '提交失败', 'err');
+            } finally {
+                btn.disabled = false;
+                refreshSubmitButtonLabel();
+            }
+        });
+
+        const historyTypeOrder = ['蔬菜', '水果', '肉', '蛋', '奶', '面食', '冻货', '豆制品', '粮油', '调料', '饮品', '饼干', '其他'];
+
+        function itemDisplayText(item) {
+            const qty = Number(item.quantity || 0);
+            const qtyText = Number.isInteger(qty) ? qty : qty.toFixed(2);
+            return `${item.product_name || ''}${qtyText}${item.product_unit || ''}`;
+        }
+
+        function renderHistoryItems(items) {
+            const groups = new Map();
+            (items || []).forEach(item => {
+                const type = item.purchase_type || item.purchaseType || '其他';
+                if (!groups.has(type)) groups.set(type, []);
+                groups.get(type).push(itemDisplayText(item));
+            });
+            const sortedTypes = Array.from(groups.keys()).sort((a, b) => {
+                const ai = historyTypeOrder.indexOf(a);
+                const bi = historyTypeOrder.indexOf(b);
+                return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            });
+            return sortedTypes.map(type => `
+                <div class="history-group">
+                    <span class="history-group-title">${type}</span>
+                    <span class="history-group-list">${groups.get(type).join('，')}</span>
+                </div>
+            `).join('');
+        }
+
+        async function loadHistory() {
+            ensureCustomer();
+            showHistoryMessage('', '');
+            const btn = document.getElementById('loadHistoryBtn');
+            btn.disabled = true;
+            btn.textContent = '查询中...';
+            const res = await fetch(`/api/public/order-history?${historyQuery()}`, { headers: apiHeaders });
+            const data = await res.json();
+            try {
+                if (!res.ok) throw new Error(data.error || '读取记录失败');
+                const list = document.getElementById('historyList');
+                if (!data.sales.length) {
+                    list.style.display = 'none';
+                    showHistoryMessage('当前范围暂无下单记录', 'err');
+                    scrollToHistory();
+                    return;
+                }
+                list.style.display = 'block';
+                list.innerHTML = data.sales.map(sale => {
+                    const items = renderHistoryItems(sale.items || []);
+                    return `
+                        <div class="history-row">
+                            <div class="history-title">
+                                <span>${sale.date || ''} ${sale.no || ''}</span>
+                                <span>¥${Number(sale.total || 0).toFixed(2)}</span>
+                            </div>
+                            <div class="history-items">${items}</div>
+                        </div>
+                    `;
+                }).join('');
+                showHistoryMessage(`共 ${data.orderCount} 张单，${data.itemCount} 条明细，合计 ¥${Number(data.total || 0).toFixed(2)}`, 'ok');
+                scrollToHistory();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '查看记录';
+            }
+        }
+
+        document.getElementById('loadHistoryBtn').addEventListener('click', () => {
+            loadHistory().catch(error => {
+                showHistoryMessage(error.message, 'err');
+                scrollToHistory();
+                const btn = document.getElementById('loadHistoryBtn');
+                btn.disabled = false;
+                btn.textContent = '查看记录';
+            });
+        });
+
+        document.getElementById('exportHistoryBtn').addEventListener('click', () => {
+            try {
+                ensureCustomer();
+                location.href = `/api/public/order-history/export?${historyQuery()}`;
+            } catch (error) {
+                showHistoryMessage(error.message, 'err');
+            }
+        });
+
+        document.getElementById('copyLastBtn').addEventListener('click', async () => {
+            try {
+                ensureCustomer();
+                const query = new URLSearchParams({ token, customerId: selectedCustomerId() });
+                const res = await fetch(`/api/public/last-order?${query.toString()}`, { headers: apiHeaders });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '没有找到上次下单');
+                setReplaceTodayMode(false);
+                openLastOrderEditor(data, 'copy');
+            } catch (error) {
+                showHistoryMessage(error.message, 'err');
+            }
+        });
+
+        document.getElementById('editTodayBtn').addEventListener('click', async () => {
+            try {
+                ensureCustomer();
+                const query = new URLSearchParams({
+                    token,
+                    customerId: selectedCustomerId(),
+                    mode: 'day',
+                    value: today()
+                });
+                const res = await fetch(`/api/public/order-history?${query.toString()}`, { headers: apiHeaders });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '读取今日订单失败');
+                if (!data.sales || !data.sales.length) throw new Error('今日暂无订单，可直接填写清单下单');
+                openLastOrderEditor({ date: today(), sales: data.sales }, 'today');
+            } catch (error) {
+                showHistoryMessage(error.message, 'err');
+            }
+        });
+
+        document.getElementById('closeLastOrderBtn').addEventListener('click', closeLastOrderEditor);
+        document.getElementById('cancelLastOrderBtn').addEventListener('click', closeLastOrderEditor);
+        document.getElementById('lastOrderModal').addEventListener('click', event => {
+            if (event.target.id === 'lastOrderModal') closeLastOrderEditor();
+        });
+        document.getElementById('addLastItemBtn').addEventListener('click', () => {
+            editableLastItems.push({ name: '', quantity: '', unit: '斤' });
+            renderLastOrderEditor();
+        });
+        document.getElementById('applyLastOrderBtn').addEventListener('click', async () => {
+            const text = editableItemsToText();
+            if (!text) {
+                showHistoryMessage('请至少保留一条完整的物品、数量、单位', 'err');
+                return;
+            }
+            document.getElementById('orderText').value = text;
+            setReplaceTodayMode(lastOrderEditorMode === 'today');
+            resetPreview();
+            closeLastOrderEditor();
+            showHistoryMessage(
+                replaceTodayMode ? '已载入今日订单，请核对预览后提交更新' : '已生成下单清单，请核对预览后提交',
+                'ok'
+            );
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            document.getElementById('previewBtn').click();
+        });
+
+        loadCustomers().catch(error => showMessage(error.message, 'err'));
+    </script>
+</body>
+</html>

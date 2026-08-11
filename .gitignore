@@ -1,0 +1,36 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+
+# Local secrets and runtime state
+.env
+*.log
+*.pid
+
+# SQLite databases and local business data
+database.db
+database.db-*
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*.bak_*
+
+# Generated exports, temporary workbooks, and QR/output artifacts
+outputs/
+tmp_*/
+localstorage_backup.json
+scripts/update_prices_*.py
+5655a9d9c3904b26114c4e524f9021c3.txt
+客户专属二维码*/
+客户下单二维码.png
+酒店打印助手_Windows.zip
+销售单快速打印工具_Windows.zip
+windows-print-tool/打印助手配置.json
+
+# Local virtual environments and packaged files
+.venv/
+node_modules/
+dist/
+build/
+*的替身
