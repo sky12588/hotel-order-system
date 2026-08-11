@@ -1,5 +1,9 @@
 # 酒店下单采购系统
 
+[中文](#中文说明) | [English](#english)
+
+## 中文说明
+
 这是一个面向酒店配送业务的下单、销售单、采购单和利润统计系统。系统从原库存管理项目中独立出来，专门用于酒店客户通过文字清单下单，后台统一生成销售单、采购单，并按客户、商品和品类沉淀价格数据。
 
 ## 适用场景
@@ -102,3 +106,113 @@ git push
 ## 重要提醒
 
 这个仓库存放的是系统代码，不存放正式业务数据库。正式订单、客户、商品、售价和利润数据以服务器上的 `database.db` 为准，更新和部署前必须先备份数据库。
+
+---
+
+## English
+
+# Hotel Order and Procurement System
+
+This is a hotel-focused order, sales invoice, procurement order, and profit reporting system. It was separated from a general inventory system and adapted for hotel delivery workflows. Hotel customers can submit free-text purchase lists, and the back office can turn them into sales invoices, procurement orders, customer-specific prices, and profit reports.
+
+## Use Cases
+
+- Hotels send purchase lists in WeChat groups.
+- Staff paste the text list into the system.
+- The system identifies product names, quantities, units, and notes.
+- Sales invoices are generated with customer-specific historical prices.
+- Procurement orders are exported by product category and supplier workflow.
+- Sales invoices and procurement orders can be printed.
+- Sales amount, procurement quantity, and profit can be analyzed later.
+
+## Main Features
+
+- Text order import: paste hotel purchase lists and convert them into structured order items.
+- Product normalization: standardize similar product names for reporting, classification, and reconciliation.
+- Customer pricing: store sales prices by customer, product, and unit.
+- Sales invoice export: export Excel files with formulas, two-decimal unit prices, and amount formatting.
+- Procurement order export: export single-customer procurement orders or merged multi-customer procurement orders.
+- Fruit split rules: generate separate fruit sales invoices according to customer-specific rules.
+- Profit reports: review sales, purchase cost, and profit by customer, category, and item.
+- Web printing: sales invoice printing supports `241mm x 140mm` half-page continuous paper; procurement orders support A4.
+- Customer portal: customers can place orders, view order history, and copy previous orders through dedicated links.
+- Print assistant: a Windows desktop tool can receive print jobs from the web back office.
+
+## Tech Stack
+
+- Backend: Python Flask
+- Database: SQLite
+- Frontend: plain HTML, CSS, and JavaScript
+- Excel processing: openpyxl
+- Deployment: Gunicorn, Nginx, systemd
+
+## Local Development
+
+```bash
+cd /Users/donggenyuan/.newmax/workspace/hotel-order-system
+python3 -m pip install -r requirements.txt
+PORT=5011 python3 server.py
+```
+
+Open in a browser:
+
+```text
+http://localhost:5011
+```
+
+## Production Deployment
+
+Deployment files are stored in the `deploy/` directory:
+
+- `deploy/deploy_vps.sh`: VPS deployment script
+- `deploy/systemd/hotel-order.service`: systemd service template
+- `deploy/nginx/hotel-order.conf`: Nginx reverse proxy template
+- `deploy/SECURITY.md`: security notes
+
+The application listens on `127.0.0.1:5011` by default. Public access should go through Nginx.
+
+## Files Not Committed to GitHub
+
+The following files are excluded by `.gitignore`:
+
+- `.env`
+- `database.db`
+- database backup files
+- exported customer order files
+- QR code images
+- local print assistant configuration
+- temporary scripts and output folders
+
+These files may contain customer data, order records, price data, server addresses, or access tokens, so they should not be committed to the repository.
+
+## Iteration Workflow
+
+After each change, use clear commit messages:
+
+```bash
+git status
+git add .
+git commit -m "Fix: normalize product names during text import"
+git push
+```
+
+Good commit message examples:
+
+- `Fix: normalize 青菜 as 青菜（把）`
+- `Add: export sales invoices by customer sheet`
+- `Improve: merge procurement orders by standardized product names`
+- `Fix: sales invoice print size overflow`
+
+Clear commits make it easier to review history, understand why a change was made, and roll back safely.
+
+## Rollback Strategy
+
+- Small issue: revert the latest commit.
+- Larger issue: reset to a known stable commit.
+- VPS issue: redeploy a stable version from GitHub.
+
+Always back up the production `database.db` before rolling back or redeploying.
+
+## Important Note
+
+This repository stores application code only. It does not store the production business database. Production orders, customers, products, prices, and profit data are stored in the server-side `database.db`. Always back up the database before updating or deploying the system.
