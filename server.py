@@ -14,6 +14,7 @@ import uuid
 import csv
 import io
 import re
+import shutil
 import urllib.error
 import urllib.request
 import webbrowser
@@ -78,6 +79,10 @@ def valid_public_order_request():
 
 
 PRINT_AGENT_TOKEN = os.environ.get('PRINT_AGENT_TOKEN', 'ChangeThisPrintAgentToken')
+UPLOADED_EXCEL_BASE_DIR = os.environ.get('UPLOADED_EXCEL_BASE_DIR', '/home/ubuntu/hotel_uploads').strip()
+UPLOADED_EXCEL_INCOMING_DIR = os.environ.get('UPLOADED_EXCEL_INCOMING_DIR', os.path.join(UPLOADED_EXCEL_BASE_DIR, 'incoming_excels')).strip()
+UPLOADED_EXCEL_PROCESSED_DIR = os.environ.get('UPLOADED_EXCEL_PROCESSED_DIR', os.path.join(UPLOADED_EXCEL_BASE_DIR, 'processed')).strip()
+UPLOADED_EXCEL_FAILED_DIR = os.environ.get('UPLOADED_EXCEL_FAILED_DIR', os.path.join(UPLOADED_EXCEL_BASE_DIR, 'failed')).strip()
 FEISHU_APP_ID = os.environ.get('FEISHU_APP_ID', '').strip()
 FEISHU_APP_SECRET = os.environ.get('FEISHU_APP_SECRET', '').strip()
 FEISHU_BITABLE_APP_TOKEN = os.environ.get('FEISHU_BITABLE_APP_TOKEN', '').strip()
@@ -5689,6 +5694,209 @@ def extract_sales_price_rows_from_workbook(wb, fallback_customer='', source_name
     return rows, skipped
 
 
+def import_sales_price_rows_to_db(extracted_rows, skipped=0):
+    latest = {}
+    for row in extracted_rows:
+        key = (canonical_customer_name(row['customer']), row['name'], row['unit'])
+        latest[key] = row
+
+    conn = db._get_conn()
+    created_prices = 0
+    updated_prices = 0
+    created_products = 0
+    created_customers = set()
+    samples = []
+    try:
+        for row in latest.values():
+            customer_name = ensure_customer_name_with_conn(conn, row['customer'])
+            created_customers.add(customer_name)
+            product = find_product_with_conn(conn, row['name'], row.get('spec') or '', row['unit'])
+            if not product:
+                product = create_hotel_flow_product(conn, row['name'], row.get('spec') or '', row['unit'], row['price'])
+                created_products += 1
+            action = 'updated'
+            existing = conn.execute('''
+                SELECT id FROM customer_product_prices
+                WHERE customer = ? AND product_id = ? AND COALESCE(product_unit, '') = ?
+                LIMIT 1
+            ''', (customer_name, product['id'], row['unit'] or '')).fetchone()
+            if not existing:
+                action = 'created'
+            if upsert_customer_product_price(conn, customer_name, product, row['unit'], row['price'], row['source']):
+                if action == 'created':
+                    created_prices += 1
+                else:
+                    updated_prices += 1
+                conn.execute('UPDATE products SET last_sale_price = ? WHERE id = ? AND ? > 0', (row['price'], product['id'], row['price']))
+                if len(samples) < 12:
+                    samples.append({
+                        'customer': customer_name,
+                        'name': product['name'],
+                        'unit': row['unit'],
+                        'price': clean_number(row['price']),
+                    })
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return {
+        'sourceRows': len(extracted_rows),
+        'latestPrices': len(latest),
+        'createdPrices': created_prices,
+        'updatedPrices': updated_prices,
+        'createdProducts': created_products,
+        'customers': sorted(created_customers),
+        'skipped': skipped,
+        'samples': samples,
+    }
+
+
+def uploaded_excel_daily_dir(base_dir):
+    day = datetime.now().strftime('%Y-%m-%d')
+    path = os.path.join(base_dir, day)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def unique_uploaded_excel_path(target_dir, filename):
+    os.makedirs(target_dir, exist_ok=True)
+    safe_name = os.path.basename(filename)
+    candidate = os.path.join(target_dir, safe_name)
+    if not os.path.exists(candidate):
+        return candidate
+    stem, ext = os.path.splitext(safe_name)
+    suffix = datetime.now().strftime('%H%M%S')
+    candidate = os.path.join(target_dir, f'{stem}_{suffix}{ext}')
+    counter = 1
+    while os.path.exists(candidate):
+        candidate = os.path.join(target_dir, f'{stem}_{suffix}_{counter}{ext}')
+        counter += 1
+    return candidate
+
+
+def move_uploaded_excel(path, target_base_dir):
+    target_dir = uploaded_excel_daily_dir(target_base_dir)
+    target = unique_uploaded_excel_path(target_dir, os.path.basename(path))
+    shutil.move(path, target)
+    return target
+
+
+def is_processable_uploaded_excel(filename):
+    name = os.path.basename(filename)
+    if not name or name.startswith('~$') or name.startswith('.'):
+        return False
+    if name.lower().endswith(('.tmp', '.bak')):
+        return False
+    return name.lower().endswith(('.xlsx', '.xlsm'))
+
+
+def uploaded_excel_status():
+    incoming = []
+    processed = []
+    failed = []
+    for label, base_dir, bucket in (
+        ('incoming', UPLOADED_EXCEL_INCOMING_DIR, incoming),
+        ('processed', UPLOADED_EXCEL_PROCESSED_DIR, processed),
+        ('failed', UPLOADED_EXCEL_FAILED_DIR, failed),
+    ):
+        if not os.path.exists(base_dir):
+            continue
+        for root, _, files in os.walk(base_dir):
+            for filename in files:
+                if not is_processable_uploaded_excel(filename):
+                    continue
+                path = os.path.join(root, filename)
+                try:
+                    stat = os.stat(path)
+                except OSError:
+                    continue
+                bucket.append({
+                    'name': filename,
+                    'path': path,
+                    'size': stat.st_size,
+                    'mtime': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
+                    'status': label,
+                })
+    incoming.sort(key=lambda row: row['mtime'], reverse=True)
+    processed.sort(key=lambda row: row['mtime'], reverse=True)
+    failed.sort(key=lambda row: row['mtime'], reverse=True)
+    return {
+        'incomingDir': UPLOADED_EXCEL_INCOMING_DIR,
+        'processedDir': UPLOADED_EXCEL_PROCESSED_DIR,
+        'failedDir': UPLOADED_EXCEL_FAILED_DIR,
+        'incoming': incoming[:50],
+        'processed': processed[:50],
+        'failed': failed[:50],
+    }
+
+
+def process_uploaded_sales_price_excels():
+    os.makedirs(UPLOADED_EXCEL_INCOMING_DIR, exist_ok=True)
+    os.makedirs(UPLOADED_EXCEL_PROCESSED_DIR, exist_ok=True)
+    os.makedirs(UPLOADED_EXCEL_FAILED_DIR, exist_ok=True)
+    files = []
+    for filename in os.listdir(UPLOADED_EXCEL_INCOMING_DIR):
+        path = os.path.join(UPLOADED_EXCEL_INCOMING_DIR, filename)
+        if os.path.isfile(path) and is_processable_uploaded_excel(filename):
+            files.append(path)
+    files.sort(key=lambda path: os.path.getmtime(path))
+    backup_path = ''
+    if files:
+        backup_path = f'{db.db_path}.bak_uploaded_excels_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        shutil.copy2(db.db_path, backup_path)
+
+    summary = {
+        'scanned': len(files),
+        'backup': backup_path,
+        'processed': 0,
+        'failed': 0,
+        'sourceRows': 0,
+        'latestPrices': 0,
+        'createdPrices': 0,
+        'updatedPrices': 0,
+        'createdProducts': 0,
+        'skipped': 0,
+        'customers': set(),
+        'files': [],
+    }
+
+    for path in files:
+        filename = os.path.basename(path)
+        file_result = {'name': filename, 'ok': False}
+        try:
+            wb = load_workbook(path, data_only=True)
+            fallback_customer = os.path.splitext(filename)[0]
+            extracted_rows, skipped = extract_sales_price_rows_from_workbook(
+                wb,
+                fallback_customer=fallback_customer,
+                source_name=f'WinSCP上传:{filename}'
+            )
+            if not extracted_rows:
+                raise ValueError('没有识别到销售单明细，请确认表头包含：货品名称、数量、单位、单价')
+            result = import_sales_price_rows_to_db(extracted_rows, skipped)
+            moved_to = move_uploaded_excel(path, UPLOADED_EXCEL_PROCESSED_DIR)
+            file_result.update(result)
+            file_result.update({'ok': True, 'movedTo': moved_to})
+            summary['processed'] += 1
+            for key in ('sourceRows', 'latestPrices', 'createdPrices', 'updatedPrices', 'createdProducts', 'skipped'):
+                summary[key] += result.get(key, 0)
+            summary['customers'].update(result.get('customers') or [])
+        except Exception as e:
+            try:
+                moved_to = move_uploaded_excel(path, UPLOADED_EXCEL_FAILED_DIR)
+            except Exception:
+                moved_to = ''
+            file_result.update({'ok': False, 'error': str(e), 'movedTo': moved_to})
+            summary['failed'] += 1
+        summary['files'].append(file_result)
+
+    summary['customers'] = sorted(summary['customers'])
+    return summary
+
+
 @app.route('/api/import/sales-prices-excel', methods=['POST'])
 def import_sales_prices_excel():
     """从销售单 Excel 提取各客户商品售价，更新客户专属售价。"""
@@ -5713,63 +5921,25 @@ def import_sales_prices_excel():
         if not extracted_rows:
             return jsonify({'error': '没有识别到销售单明细，请确认表头包含：货品名称、数量、单位、单价'}), 400
 
-        latest = {}
-        for row in extracted_rows:
-            key = (canonical_customer_name(row['customer']), row['name'], row['unit'])
-            latest[key] = row
-
-        conn = db._get_conn()
-        created_prices = 0
-        updated_prices = 0
-        created_products = 0
-        created_customers = set()
-        samples = []
         try:
-            for row in latest.values():
-                customer_name = ensure_customer_name_with_conn(conn, row['customer'])
-                created_customers.add(customer_name)
-                product = find_product_with_conn(conn, row['name'], row.get('spec') or '', row['unit'])
-                if not product:
-                    product = create_hotel_flow_product(conn, row['name'], row.get('spec') or '', row['unit'], row['price'])
-                    created_products += 1
-                action = 'updated'
-                existing = conn.execute('''
-                    SELECT id FROM customer_product_prices
-                    WHERE customer = ? AND product_id = ? AND COALESCE(product_unit, '') = ?
-                    LIMIT 1
-                ''', (customer_name, product['id'], row['unit'] or '')).fetchone()
-                if not existing:
-                    action = 'created'
-                if upsert_customer_product_price(conn, customer_name, product, row['unit'], row['price'], row['source']):
-                    if action == 'created':
-                        created_prices += 1
-                    else:
-                        updated_prices += 1
-                    conn.execute('UPDATE products SET last_sale_price = ? WHERE id = ? AND ? > 0', (row['price'], product['id'], row['price']))
-                    if len(samples) < 12:
-                        samples.append({
-                            'customer': customer_name,
-                            'name': product['name'],
-                            'unit': row['unit'],
-                            'price': clean_number(row['price']),
-                        })
-            conn.commit()
+            result = import_sales_price_rows_to_db(extracted_rows, skipped)
         except Exception as e:
-            conn.rollback()
             return jsonify({'error': str(e)}), 500
-        finally:
-            conn.close()
 
-        return jsonify({
-            'sourceRows': len(extracted_rows),
-            'latestPrices': len(latest),
-            'createdPrices': created_prices,
-            'updatedPrices': updated_prices,
-            'createdProducts': created_products,
-            'customers': sorted(created_customers),
-            'skipped': skipped,
-            'samples': samples,
-        })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/uploaded-excels/status', methods=['GET'])
+def api_uploaded_excel_status():
+    return jsonify(uploaded_excel_status())
+
+
+@app.route('/api/uploaded-excels/process', methods=['POST'])
+def api_process_uploaded_sales_price_excels():
+    try:
+        return jsonify(process_uploaded_sales_price_excels())
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

@@ -118,7 +118,11 @@
                         <button class="btn" onclick="Modals.open('salesPriceImportModal')">
                             导入销售单售价
                         </button>
+                        <button class="btn" onclick="ExcelImport.processUploadedSalesPrices()">
+                            处理已上传Excel
+                        </button>
                     </div>
+                    <div id="uploadedExcelProcessResult" style="margin-top:12px;padding:10px;border-radius:4px;display:none;"></div>
                 </div>
             </section>
 

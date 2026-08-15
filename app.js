@@ -3504,6 +3504,45 @@ const ExcelImport = {
         input.value = '';
     },
 
+    async processUploadedSalesPrices() {
+        const resultDiv = document.getElementById('uploadedExcelProcessResult');
+        if (resultDiv) {
+            resultDiv.style.display = 'block';
+            resultDiv.style.background = '#f5f5f5';
+            resultDiv.innerHTML = '正在处理 WinSCP 上传的 Excel...';
+        }
+        try {
+            const result = await API.post('uploaded-excels/process', {});
+            const failed = (result.files || []).filter(file => !file.ok);
+            const success = (result.files || []).filter(file => file.ok);
+            const successHtml = success.length
+                ? `<div style="margin-top:8px;color:#666;">成功文件：${success.map(file => file.name).join('、')}</div>`
+                : '';
+            const failedHtml = failed.length
+                ? `<div style="margin-top:8px;color:#a8071a;">失败文件：${failed.map(file => `${file.name}（${file.error || '未知错误'}）`).join('；')}</div>`
+                : '';
+            if (resultDiv) {
+                resultDiv.style.background = result.failed ? '#fff1f0' : '#f6ffed';
+                resultDiv.innerHTML = [
+                    `扫描 ${result.scanned || 0} 个文件，成功 ${result.processed || 0} 个，失败 ${result.failed || 0} 个`,
+                    `读取 ${result.sourceRows || 0} 条销售明细，整理出 ${result.latestPrices || 0} 条客户售价`,
+                    `新增售价 ${result.createdPrices || 0} 条，更新售价 ${result.updatedPrices || 0} 条`,
+                    result.createdProducts ? `自动新增物品 ${result.createdProducts} 个` : '',
+                    (result.customers || []).length ? `客户：${result.customers.join('、')}` : ''
+                ].filter(Boolean).join('<br>') + successHtml + failedHtml;
+            }
+            await Store.refresh(['products', 'customers']);
+            Products.render();
+        } catch (e) {
+            if (resultDiv) {
+                resultDiv.style.background = '#fff1f0';
+                resultDiv.innerHTML = `处理失败：${e.message}`;
+            } else {
+                alert(`处理失败：${e.message}`);
+            }
+        }
+    },
+
     async importOutbounds(input) {
         const file = input.files[0];
         if (!file) return;
