@@ -7,6 +7,7 @@
 
 import os
 import base64
+import hashlib
 import hmac
 import json
 import sqlite3
@@ -83,6 +84,7 @@ UPLOADED_EXCEL_BASE_DIR = os.environ.get('UPLOADED_EXCEL_BASE_DIR', '/home/ubunt
 UPLOADED_EXCEL_INCOMING_DIR = os.environ.get('UPLOADED_EXCEL_INCOMING_DIR', os.path.join(UPLOADED_EXCEL_BASE_DIR, 'incoming_excels')).strip()
 UPLOADED_EXCEL_PROCESSED_DIR = os.environ.get('UPLOADED_EXCEL_PROCESSED_DIR', os.path.join(UPLOADED_EXCEL_BASE_DIR, 'processed')).strip()
 UPLOADED_EXCEL_FAILED_DIR = os.environ.get('UPLOADED_EXCEL_FAILED_DIR', os.path.join(UPLOADED_EXCEL_BASE_DIR, 'failed')).strip()
+UPLOADED_EXCEL_MANIFEST_PATH = os.environ.get('UPLOADED_EXCEL_MANIFEST_PATH', os.path.join(UPLOADED_EXCEL_BASE_DIR, '.processed_manifest.json')).strip()
 FEISHU_APP_ID = os.environ.get('FEISHU_APP_ID', '').strip()
 FEISHU_APP_SECRET = os.environ.get('FEISHU_APP_SECRET', '').strip()
 FEISHU_BITABLE_APP_TOKEN = os.environ.get('FEISHU_BITABLE_APP_TOKEN', '').strip()
@@ -5784,6 +5786,13 @@ def move_uploaded_excel(path, target_base_dir):
     return target
 
 
+def copy_uploaded_excel(path, target_base_dir):
+    target_dir = uploaded_excel_daily_dir(target_base_dir)
+    target = unique_uploaded_excel_path(target_dir, os.path.basename(path))
+    shutil.copy2(path, target)
+    return target
+
+
 def is_processable_uploaded_excel(filename):
     name = os.path.basename(filename)
     if not name or name.startswith('~$') or name.startswith('.'):
@@ -5791,6 +5800,58 @@ def is_processable_uploaded_excel(filename):
     if name.lower().endswith(('.tmp', '.bak')):
         return False
     return name.lower().endswith(('.xlsx', '.xlsm'))
+
+
+def uploaded_excel_relpath(path):
+    try:
+        return os.path.relpath(path, UPLOADED_EXCEL_INCOMING_DIR).replace(os.sep, '/')
+    except ValueError:
+        return os.path.basename(path)
+
+
+def uploaded_excel_digest(path):
+    stat = os.stat(path)
+    digest = hashlib.sha256()
+    with open(path, 'rb') as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return {
+        'size': stat.st_size,
+        'mtimeNs': getattr(stat, 'st_mtime_ns', int(stat.st_mtime * 1000000000)),
+        'sha256': digest.hexdigest(),
+    }
+
+
+def load_uploaded_excel_manifest():
+    if not os.path.exists(UPLOADED_EXCEL_MANIFEST_PATH):
+        return {}
+    try:
+        with open(UPLOADED_EXCEL_MANIFEST_PATH, 'r', encoding='utf-8') as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_uploaded_excel_manifest(manifest):
+    os.makedirs(os.path.dirname(UPLOADED_EXCEL_MANIFEST_PATH), exist_ok=True)
+    temp_path = f'{UPLOADED_EXCEL_MANIFEST_PATH}.tmp'
+    with open(temp_path, 'w', encoding='utf-8') as handle:
+        json.dump(manifest, handle, ensure_ascii=False, indent=2, sort_keys=True)
+    os.replace(temp_path, UPLOADED_EXCEL_MANIFEST_PATH)
+
+
+def collect_uploaded_excel_files():
+    files = []
+    if not os.path.exists(UPLOADED_EXCEL_INCOMING_DIR):
+        return files
+    for root, _, filenames in os.walk(UPLOADED_EXCEL_INCOMING_DIR):
+        for filename in filenames:
+            path = os.path.join(root, filename)
+            if os.path.isfile(path) and is_processable_uploaded_excel(filename):
+                files.append(path)
+    files.sort(key=lambda item: (os.path.getmtime(item), uploaded_excel_relpath(item)))
+    return files
 
 
 def uploaded_excel_status():
@@ -5837,19 +5898,32 @@ def process_uploaded_sales_price_excels():
     os.makedirs(UPLOADED_EXCEL_INCOMING_DIR, exist_ok=True)
     os.makedirs(UPLOADED_EXCEL_PROCESSED_DIR, exist_ok=True)
     os.makedirs(UPLOADED_EXCEL_FAILED_DIR, exist_ok=True)
+    manifest = load_uploaded_excel_manifest()
+    all_files = collect_uploaded_excel_files()
     files = []
-    for filename in os.listdir(UPLOADED_EXCEL_INCOMING_DIR):
-        path = os.path.join(UPLOADED_EXCEL_INCOMING_DIR, filename)
-        if os.path.isfile(path) and is_processable_uploaded_excel(filename):
-            files.append(path)
-    files.sort(key=lambda path: os.path.getmtime(path))
+    skipped_unchanged = 0
+    file_signatures = {}
+    for path in all_files:
+        relpath = uploaded_excel_relpath(path)
+        try:
+            signature = uploaded_excel_digest(path)
+        except OSError:
+            continue
+        file_signatures[relpath] = signature
+        previous = manifest.get(relpath) or {}
+        if previous.get('signature') == signature:
+            skipped_unchanged += 1
+            continue
+        files.append(path)
     backup_path = ''
     if files:
         backup_path = f'{db.db_path}.bak_uploaded_excels_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
         shutil.copy2(db.db_path, backup_path)
 
     summary = {
+        'totalIncoming': len(all_files),
         'scanned': len(files),
+        'skippedUnchanged': skipped_unchanged,
         'backup': backup_path,
         'processed': 0,
         'failed': 0,
@@ -5865,7 +5939,9 @@ def process_uploaded_sales_price_excels():
 
     for path in files:
         filename = os.path.basename(path)
-        file_result = {'name': filename, 'ok': False}
+        relpath = uploaded_excel_relpath(path)
+        signature = file_signatures.get(relpath)
+        file_result = {'name': filename, 'path': relpath, 'ok': False}
         try:
             wb = load_workbook(path, data_only=True)
             fallback_customer = os.path.splitext(filename)[0]
@@ -5877,22 +5953,41 @@ def process_uploaded_sales_price_excels():
             if not extracted_rows:
                 raise ValueError('没有识别到销售单明细，请确认表头包含：货品名称、数量、单位、单价')
             result = import_sales_price_rows_to_db(extracted_rows, skipped)
-            moved_to = move_uploaded_excel(path, UPLOADED_EXCEL_PROCESSED_DIR)
+            copied_to = copy_uploaded_excel(path, UPLOADED_EXCEL_PROCESSED_DIR)
             file_result.update(result)
-            file_result.update({'ok': True, 'movedTo': moved_to})
+            file_result.update({'ok': True, 'copiedTo': copied_to})
+            manifest[relpath] = {
+                'signature': signature,
+                'status': 'processed',
+                'processedAt': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'archive': copied_to,
+                'sourceRows': result.get('sourceRows', 0),
+                'latestPrices': result.get('latestPrices', 0),
+                'customers': result.get('customers') or [],
+            }
             summary['processed'] += 1
             for key in ('sourceRows', 'latestPrices', 'createdPrices', 'updatedPrices', 'createdProducts', 'skipped'):
                 summary[key] += result.get(key, 0)
             summary['customers'].update(result.get('customers') or [])
         except Exception as e:
             try:
-                moved_to = move_uploaded_excel(path, UPLOADED_EXCEL_FAILED_DIR)
+                copied_to = copy_uploaded_excel(path, UPLOADED_EXCEL_FAILED_DIR)
             except Exception:
-                moved_to = ''
-            file_result.update({'ok': False, 'error': str(e), 'movedTo': moved_to})
+                copied_to = ''
+            file_result.update({'ok': False, 'error': str(e), 'copiedTo': copied_to})
+            manifest[relpath] = {
+                'signature': signature,
+                'status': 'failed',
+                'processedAt': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'archive': copied_to,
+                'error': str(e),
+            }
             summary['failed'] += 1
         summary['files'].append(file_result)
+        save_uploaded_excel_manifest(manifest)
 
+    if files:
+        save_uploaded_excel_manifest(manifest)
     summary['customers'] = sorted(summary['customers'])
     return summary
 
