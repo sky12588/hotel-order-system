@@ -3437,6 +3437,22 @@ const Printer = {
 
 // ==================== Excel导入导出 ====================
 const ExcelImport = {
+    hotelSalesSubmitting: false,
+
+    setHotelSalesSubmitting(isSubmitting, activeButtonId = '') {
+        this.hotelSalesSubmitting = isSubmitting;
+        const buttons = [
+            { id: 'hotelGrocerySyncBtn', text: '生成销售单' },
+            { id: 'hotelSalesTextOnlyBtn', text: '只生成销售单' },
+        ];
+        buttons.forEach(({ id, text }) => {
+            const button = document.getElementById(id);
+            if (!button) return;
+            button.disabled = isSubmitting;
+            button.textContent = isSubmitting && id === activeButtonId ? '生成中...' : text;
+        });
+    },
+
     openHotelSalesImport() {
         document.getElementById('hotelSalesTextDate').value = Utils.today();
         document.getElementById('hotelGrocerySupplier').value = '西安禾润佳商贸有限公司';
@@ -3707,12 +3723,14 @@ const ExcelImport = {
     },
 
     async importHotelSalesText() {
+        if (this.hotelSalesSubmitting) return;
         const text = document.getElementById('hotelSalesText').value.trim();
         if (!text) {
             Utils.toast('请先粘贴酒店清单', 'error');
             return;
         }
 
+        this.setHotelSalesSubmitting(true, 'hotelSalesTextOnlyBtn');
         try {
             const result = await API.post('import/hotel-sales-text', {
                 text,
@@ -3739,16 +3757,20 @@ const ExcelImport = {
             resultDiv.style.display = 'block';
             resultDiv.style.background = '#fff1f0';
             resultDiv.innerHTML = `生成失败：${e.message}`;
+        } finally {
+            this.setHotelSalesSubmitting(false);
         }
     },
 
     async syncHotelGroceryText() {
+        if (this.hotelSalesSubmitting) return;
         const text = document.getElementById('hotelSalesText').value.trim();
         if (!text) {
             Utils.toast('请先粘贴酒店订单', 'error');
             return;
         }
 
+        this.setHotelSalesSubmitting(true, 'hotelGrocerySyncBtn');
         try {
             const result = await API.post('hotel-grocery/sync', {
                 text,
@@ -3776,6 +3798,8 @@ const ExcelImport = {
             resultDiv.style.display = 'block';
             resultDiv.style.background = '#fff1f0';
             resultDiv.innerHTML = `同步失败：${e.message}`;
+        } finally {
+            this.setHotelSalesSubmitting(false);
         }
     },
 

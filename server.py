@@ -834,6 +834,18 @@ def safe_push_sale_to_feishu(sale_id):
         return str(e)
 
 
+def push_sales_to_feishu_async(sale_ids):
+    ids = [sale_id for sale_id in (sale_ids or []) if sale_id]
+    if not ids or not FEISHU_SYNC_ENABLED:
+        return
+
+    def worker():
+        for sale_id in ids:
+            safe_push_sale_to_feishu(sale_id)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
 def feishu_update_record(record_id, fields):
     return feishu_api('PUT', feishu_record_path(record_id), {'fields': fields})
 
@@ -2449,18 +2461,12 @@ def sync_hotel_grocery_orders(items, date_str, supplier_name, customer, company=
     result, error, status = create_hotel_sales_orders(rows_data)
     if error:
         return None, error, status
-    feishu_errors = []
-    for sale_id in result.get('saleIds') or []:
-        err = safe_push_sale_to_feishu(sale_id)
-        if err:
-            feishu_errors.append(err)
+    push_sales_to_feishu_async(result.get('saleIds') or [])
     result.update({
         'createdProducts': len(created_products),
         'createdProductNames': sorted(set(created_products)),
         'order': [item['name'] for item in items],
     })
-    if feishu_errors:
-        result['feishuSyncError'] = '；'.join(feishu_errors[:3])
     return result, None, status
 
 
@@ -5567,46 +5573,30 @@ def import_hotel_sales_text():
     if not parsed_items:
         return jsonify({'error': '没有识别到“物品+数量+单位”的清单内容'}), 400
 
-    rows_data = []
-    missing_products = []
-    no_last_price = []
-    for item in parsed_items:
-        product = find_product(item['name'], unit=item['unit'])
-        if not product:
-            product = find_product(item['name'])
-        if not product:
-            missing_products.append(f"{item['name']}{clean_number(item['quantity'])}{item['unit']}")
-            continue
-
-        price = get_customer_product_price(customer, product, item['unit'])
-        if price <= 0:
-            no_last_price.append(product['name'])
-            price = as_float(product.get('last_sale_price')) or as_float(product.get('cost'))
-
-        rows_data.append({
-            'date': date_str,
-            'customer': customer or '酒店',
-            'company': company,
-            'phone': phone,
-            'order_key': item.get('order_key') or hotel_sales_order_key(customer, item['name']),
-            'product': product,
-            'product_name': item['name'],
-            'product_unit': item['unit'],
-            'quantity': item['quantity'],
-            'price': price
-        })
+    conn = db._get_conn()
+    try:
+        rows_data, created_products = prepare_hotel_grocery_sales_rows(
+            conn, parsed_items, date_str, customer or '酒店', company, phone
+        )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e), 'unparsed': leftovers}), 500
+    finally:
+        conn.close()
 
     result, error, status = create_hotel_sales_orders(rows_data)
     if error:
-        error['missingProducts'] = sorted(set(missing_products))
         error['unparsed'] = leftovers
         return jsonify(error), status
+    push_sales_to_feishu_async(result.get('saleIds') or [])
 
     result.update({
         'parsed': len(parsed_items),
-        'skipped': len(missing_products),
-        'missingProducts': sorted(set(missing_products)),
-        'noLastPrice': sorted(set(no_last_price)),
+        'skipped': 0,
+        'missingProducts': [],
+        'createdProducts': len(created_products),
+        'createdProductNames': sorted(set(created_products)),
         'unparsed': leftovers
     })
     return jsonify(result)

@@ -1165,8 +1165,8 @@
                 </div>
                 <div style="display:flex;gap:10px;margin-bottom:20px;">
                     <button class="btn" onclick="ExcelImport.downloadHotelGroceryPurchaseList()">下载采购单</button>
-                    <button class="btn btn-primary" onclick="ExcelImport.syncHotelGroceryText()">生成销售单</button>
-                    <button class="btn" onclick="ExcelImport.importHotelSalesText()">只生成销售单</button>
+                    <button id="hotelGrocerySyncBtn" class="btn btn-primary" onclick="ExcelImport.syncHotelGroceryText()">生成销售单</button>
+                    <button id="hotelSalesTextOnlyBtn" class="btn" onclick="ExcelImport.importHotelSalesText()">只生成销售单</button>
                     <button class="btn" onclick="document.getElementById('hotelSalesText').value = ''">清空</button>
                 </div>
                 <table class="data-table" style="margin-bottom:16px;">
