@@ -2012,7 +2012,8 @@ const SalesModal = {
             price: i.price,
             productName: i.product_name,
             productSpec: i.product_spec,
-            productUnit: i.product_unit
+            productUnit: i.product_unit,
+            note: i.note || ''
         }));
         this.renderItems();
         Modals.open('salesModal');
@@ -2306,7 +2307,10 @@ const SalesModal = {
                 productId: i.productId,
                 quantity: i.quantity,
                 price: i.price,
-                productUnit: i.productUnit || ''
+                productName: i.productName || '',
+                productSpec: i.productSpec || '',
+                productUnit: i.productUnit || '',
+                note: i.note || ''
             })),
             showHandlers: document.getElementById('salesShowHandlers').checked,
             handler: document.getElementById('salesHandler').value.trim(),

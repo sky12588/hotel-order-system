@@ -4059,15 +4059,16 @@ def create_or_update_sale():
     try:
         is_hotel_flow = False
         if sid:
-            old_sale = db.query_one('SELECT purchase_id FROM sales WHERE id = ?', (sid,))
+            old_sale_row = conn.execute('SELECT purchase_id FROM sales WHERE id = ?', (sid,)).fetchone()
+            old_sale = dict(old_sale_row) if old_sale_row else None
             is_hotel_flow = old_sale and old_sale.get('purchase_id') == HOTEL_FLOW_PURCHASE_ID
             if is_hotel_flow:
-                deductions = db.query('SELECT product_id, quantity FROM hotel_stock_deductions WHERE sale_id = ?', (sid,))
+                deductions = conn.execute('SELECT product_id, quantity FROM hotel_stock_deductions WHERE sale_id = ?', (sid,)).fetchall()
                 for old in deductions:
                     conn.execute("UPDATE products SET stock = stock + ? WHERE id = ?", (old['quantity'], old['product_id']))
                 conn.execute('DELETE FROM hotel_stock_deductions WHERE sale_id = ?', (sid,))
             else:
-                old_items = db.query('SELECT product_id, quantity FROM sales_items WHERE sale_id = ?', (sid,))
+                old_items = conn.execute('SELECT product_id, quantity FROM sales_items WHERE sale_id = ?', (sid,)).fetchall()
                 for old in old_items:
                     conn.execute("UPDATE products SET stock = stock + ? WHERE id = ? AND NOT (code LIKE 'WP%' OR code LIKE 'IMP%')", (old['quantity'], old['product_id']))
 
@@ -4091,10 +4092,13 @@ def create_or_update_sale():
             price = float(item.get('price', 0))
             subtotal = quantity * price
 
-            prod = db.query_one('SELECT name, spec, unit FROM products WHERE id = ?', (product_id,))
+            prod_row = conn.execute('SELECT id, name, spec, unit, code, stock FROM products WHERE id = ?', (product_id,)).fetchone()
+            prod = dict(prod_row) if prod_row else None
             product_unit = (item.get('productUnit') or item.get('product_unit') or '').strip()
             if not product_unit and prod:
                 product_unit = prod.get('unit') or ''
+            product_name = prod['name'] if prod else (item.get('productName') or item.get('product_name') or '')
+            product_spec = prod['spec'] if prod else (item.get('productSpec') or item.get('product_spec') or '')
             sale_item_id = generate_id()
 
             conn.execute('''
@@ -4104,8 +4108,8 @@ def create_or_update_sale():
                 sale_item_id,
                 sid,
                 product_id,
-                prod['name'] if prod else '',
-                prod['spec'] if prod else '',
+                product_name,
+                product_spec,
                 product_unit,
                 quantity,
                 price,
@@ -4114,7 +4118,7 @@ def create_or_update_sale():
             ))
 
             if is_hotel_flow:
-                full_prod = db.query_one('SELECT * FROM products WHERE id = ?', (product_id,))
+                full_prod = prod
                 if full_prod and not is_flow_item(full_prod) and as_float(full_prod.get('stock')) > 0:
                     conn.execute("UPDATE products SET stock = stock - ? WHERE id = ?", (quantity, product_id))
                     conn.execute('''
