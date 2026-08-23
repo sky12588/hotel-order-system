@@ -1122,7 +1122,7 @@ HOTEL_CATEGORY_KEYWORDS = {
         '红薯', '水果玉米', '螺丝椒', '青红线椒', '红线椒', '绿线椒', '红辣椒', '青辣椒', '鲜小米椒', '小米椒', '黄甜椒', '甜豆', '茄子', '黄瓜',
         '油麦菜', '油菜', '茼蒿', '龙须菜', '生菜', '娃娃菜', '莲菜', '莲藕', '冬瓜', '南瓜', '韭菜', '大葱',
         '洋葱', '蒜苗', '上海青', '包菜', '蘑菇', '金针菇', '平菇', '杏鲍菇',
-        '波菜', '生姜', '姜', '白萝卜', '红心萝卜', '樱桃小萝卜', '萝卜苗', '象牙白萝卜', '花心萝卜', '净笋', '线椒', '黄芽菜', '广东菜心', '菜心', '净蒜', '去皮蒜', '扒皮蒜', '新蒜', '毛蒜', '白葱',
+        '波菜', '生姜', '姜', '白萝卜', '红心萝卜', '樱桃小萝卜', '萝卜苗', '象牙萝卜', '象牙白萝卜', '花心萝卜', '净笋', '线椒', '黄芽菜', '广东菜心', '菜心', '净蒜', '去皮蒜', '扒皮蒜', '新蒜', '毛蒜', '白葱',
         '苦菊', '西蓝花', '青笋', '圆生菜', '罗马生菜', '叶生菜', '红萝卜', '圆茄',
         '水洗铁棍山药', '铁棍山药', '山药', '黄土豆', '贝贝南瓜', '长豆角', '芥菜', '广茄',
         '园茄子', '圆茄子', '白豆角', '扁豆角', '龙豆', '长江豆', '长豇豆', '豇豆', '紫甘蓝', '豆苗', '磨菇', '海鲜菇', '藕片', '苦瓜', '西芹',
@@ -1141,7 +1141,7 @@ HOTEL_CATEGORY_OVERRIDES = {
     '调料咸菜类': ['六六红火锅料', '火锅料', '精品魔芋', '素鸡', '泡椒', '东古一品鲜酱油', '蒸鱼豉油', '辣鲜露', '鸡汁', '小米辣', '老干妈', '甜面酱', '番茄酱', '蕃茄酱', '卤肉料包', '麻婆豆腐调料', '麻婆豆腐料', '火锅底料', '酱黄瓜', '裙带菜咸菜', '咸菜', '十三香', '杏仁片', '白芝麻', '黄豆', '虾皮', '红99', '桂皮', '花椒', '白胡椒粉', '白胡椒', '干辣椒', '辣椒段', '辣皮子', '红醋', '生抽', '老抽', '料酒', '蚝油', '耗油', '食盐'],
     '豆制品类': ['玉米搅团', '凉粉', '红豆腐丝', '黑豆腐丝', '素毛肚丝', '羊肚丝', '黑豆皮', '鱼酸菜', '酸豆角', '方块面筋', '方块儿面筋', '小面筋', '面筋', '酸菜(黑)', '酸菜（黑）', '豆芽菜', '大豆芽', '小豆芽', '黄豆芽', '豆芽', '豆腐干', '豆腐皮', '豆腐', '豆干', '豆皮', '腐竹', '云丝'],
     '水果类': ['乳瓜', '圣女果', '哈密瓜', '西瓜', '火龙果', '柠檬', '油桃', '小油桃', '桃子', '苹果', '香梨', '小香蕉', '香蕉', '青提', '李子'],
-    '蔬菜类': ['水洗铁棍山药', '铁棍山药', '山药', '黄土豆', '贝贝南瓜', '水果玉米', '蒜苔', '蒜薹', '荷兰豆', '广红', '韭黄', '白玉菇', '麦芹', '大芹菜', '毛芹', '红薯', '螺丝椒', '青红线椒', '红线椒', '绿线椒', '红辣椒', '青辣椒', '鲜小米椒', '小米椒', '黄甜椒', '甜豆', '奶白菜', '白豆角', '苦瓜', '油麦菜', '油菜', '香葱', '龙须菜', '莲菜', '连菜', '波菜', '生姜', '姜', '白萝卜', '红心萝卜', '樱桃小萝卜', '萝卜苗', '象牙白萝卜', '花心萝卜', '净笋', '线椒', '黄芽菜', '广东菜心', '菜心', '净蒜', '去皮蒜', '扒皮蒜', '新蒜', '毛蒜', '白葱', '苦菊', '西蓝花', '青笋', '圆生菜', '罗马生菜', '叶生菜', '红萝卜', '园茄子', '圆茄子', '圆茄', '广茄', '长豆角', '扁豆角', '龙豆', '长江豆', '长豇豆', '豇豆', '芥菜', '紫甘蓝', '豆苗', '磨菇', '海鲜菇', '藕片', '西芹'],
+    '蔬菜类': ['水洗铁棍山药', '铁棍山药', '山药', '黄土豆', '贝贝南瓜', '水果玉米', '蒜苔', '蒜薹', '荷兰豆', '广红', '韭黄', '白玉菇', '麦芹', '大芹菜', '毛芹', '红薯', '螺丝椒', '青红线椒', '红线椒', '绿线椒', '红辣椒', '青辣椒', '鲜小米椒', '小米椒', '黄甜椒', '甜豆', '奶白菜', '白豆角', '苦瓜', '油麦菜', '油菜', '香葱', '龙须菜', '莲菜', '连菜', '波菜', '生姜', '姜', '白萝卜', '红心萝卜', '樱桃小萝卜', '萝卜苗', '象牙萝卜', '象牙白萝卜', '花心萝卜', '净笋', '线椒', '黄芽菜', '广东菜心', '菜心', '净蒜', '去皮蒜', '扒皮蒜', '新蒜', '毛蒜', '白葱', '苦菊', '西蓝花', '青笋', '圆生菜', '罗马生菜', '叶生菜', '红萝卜', '园茄子', '圆茄子', '圆茄', '广茄', '长豆角', '扁豆角', '龙豆', '长江豆', '长豇豆', '豇豆', '芥菜', '紫甘蓝', '豆苗', '磨菇', '海鲜菇', '藕片', '西芹'],
     '肉蛋类': ['牛柳片', '五花肉块', '前腿肉块', '猪耳朵', '腊肠', '排骨', '鸡脯肉', '鸡肉丁', '里脊肉片', '后腿肉片', '后腿肉', '五花肉', '五花肉片', '黑鱼片', '肉块'],
     '主食面点类': ['黑吐司面包', '白吐司面包', '吐司面包', '龙须面', '锅盔', '法棍', '凉面', '炒拉条', '米皮', '擀面皮', '炒饼丝', '炒饼', '炒细面', '麻什', '发糕', '蛋黄酥', '牛角包', '土豆粉', '细薄韭叶面', '手工面条', '手工面', '白凉皮', '哨子面', '馍'],
     '粮油干货类': ['玉米粒', '香油', '油条', '淀粉', '核桃仁', '瓜子仁', '花生米', '黄油', '果酱', '沙拉油醋汁', '白糖', '金罗高汤', '辣椒面', '红薯粉条', '粉丝', '小木耳', '黑木耳', '绿豆', '江米', '油'],
@@ -1514,6 +1514,53 @@ def purchase_category_label(category):
     return category
 
 
+PURCHASE_SUPPLIER_GROUPS = {
+    '青菜供应商': [
+        '菠菜', '麦芹', '香菜', '圆生菜', '青菜（把）', '青菜', '小青菜',
+        '广东菜心', '菜心', '香葱', '小葱',
+    ],
+    '王伟供应商': [
+        '豇豆', '长豇豆', '白豆角', '螺丝椒', '蒜苔', '韭菜',
+    ],
+    '自采': [
+        '纯牛奶', '牛奶', '水果玉米', '青笋', '平菇', '黄瓜', '西兰花', '西蓝花',
+        '红萝卜', '胡萝卜', '洋葱', '新蒜', '净蒜', '蒜苗', '白萝卜', '象牙萝卜',
+        '生姜', '姜',
+    ],
+}
+
+PURCHASE_SUPPLIER_GROUP_ORDER = {
+    '青菜供应商': 1,
+    '王伟供应商': 2,
+    '自采': 3,
+}
+
+PURCHASE_SUPPLIER_ITEM_ORDER = {
+    '菠菜': 1, '麦芹': 2, '香菜': 3, '圆生菜': 4, '青菜（把）': 5, '青菜': 5, '小青菜': 5,
+    '广东菜心': 6, '菜心': 6, '香葱': 7, '小葱': 8,
+    '豇豆': 101, '长豇豆': 101, '螺丝椒': 102, '蒜苔': 103, '韭菜': 104, '白豆角': 105,
+    '纯牛奶': 201, '牛奶': 201, '水果玉米': 202, '青笋': 203, '平菇': 204,
+    '黄瓜': 205, '西兰花': 206, '西蓝花': 206, '红萝卜': 207, '胡萝卜': 207,
+    '洋葱': 208, '新蒜': 209, '净蒜': 210, '蒜苗': 211, '白萝卜': 212, '象牙萝卜': 212,
+    '生姜': 213, '姜': 213,
+}
+
+
+def purchase_supplier_group(name):
+    text = normalize_hotel_item_name(str(name or ''))
+    for group, names in PURCHASE_SUPPLIER_GROUPS.items():
+        if text in names:
+            return group
+    return ''
+
+
+def purchase_group_label(name):
+    supplier_group = purchase_supplier_group(name)
+    if supplier_group:
+        return supplier_group
+    return purchase_category_label(hotel_item_category(name))
+
+
 def public_purchase_type_label(name):
     text = str(name or '')
     category = hotel_item_category(text)
@@ -1571,6 +1618,7 @@ PURCHASE_REVIEW_NAME_GROUPS = {
     '圆茄子': '茄子',
     '园茄子': '茄子',
     '白萝卜': '白萝卜',
+    '象牙萝卜': '白萝卜',
     '象牙白萝卜': '白萝卜',
     '花心萝卜': '白萝卜',
     '莲花白': '花白',
@@ -1676,15 +1724,17 @@ def vegetable_review_rank(name):
 
 
 def sort_purchase_review_items(items):
-    rank = {category: idx for idx, category in enumerate(HOTEL_CATEGORY_ORDER)}
+    rank = {category: idx + 10 for idx, category in enumerate(HOTEL_CATEGORY_ORDER)}
     indexed = list(enumerate(items))
     def sort_key(pair):
         item = pair[1]
         raw_name = item.get('name') or item.get('product_name') or ''
         name = normalize_hotel_item_name(raw_name)
+        supplier_group = purchase_supplier_group(name)
         category = hotel_item_category(name)
         return (
-            rank.get(category, 999),
+            PURCHASE_SUPPLIER_GROUP_ORDER.get(supplier_group, rank.get(category, 999)),
+            PURCHASE_SUPPLIER_ITEM_ORDER.get(name, 9999),
             vegetable_review_rank(name) if category == '蔬菜类' else 9999,
             purchase_review_name_order(name),
             purchase_review_name_group(name),
@@ -1893,7 +1943,7 @@ def build_purchase_list_workbook(items, title):
     current_category = None
     for item in sort_purchase_review_items(items):
         name = item.get('name') or item.get('product_name') or ''
-        category = hotel_item_category(name)
+        category = purchase_group_label(name)
         show_category = category if category != current_category else ''
         current_category = category
         ws.append([
@@ -1973,7 +2023,7 @@ def build_customer_split_purchase_workbook(summary_items, customer_items, custom
         name = item.get('name') or ''
         unit = item.get('unit') or ''
         purchase_group = item.get('purchase_group') or ''
-        category = purchase_category_label(hotel_item_category(name))
+        category = purchase_group_label(name)
         show_category = category if category != current_category else ''
         current_category = category
         row = [

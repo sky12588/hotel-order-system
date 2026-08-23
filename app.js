@@ -2799,18 +2799,48 @@ const Printer = {
 
     purchaseSortRank(category) {
         const ranks = {
-            '蔬菜类': 1,
-            '豆制品类': 2,
-            '水果类': 3,
-            '肉蛋类': 4,
-            '主食面点类': 5,
-            '粮油调料类': 6,
-            '饮品乳品类': 7,
-            '冻货类': 8,
-            '饼干': 9,
+            '青菜供应商': 1,
+            '王伟供应商': 2,
+            '自采': 3,
+            '蔬菜类': 10,
+            '豆制品类': 11,
+            '水果类': 12,
+            '肉蛋类': 13,
+            '主食面点类': 14,
+            '粮油调料类': 15,
+            '饮品乳品类': 16,
+            '冻货类': 17,
+            '饼干': 18,
             '其他类': 99
         };
         return ranks[category] || 99;
+    },
+
+    purchaseSupplierGroup(name) {
+        const text = String(name || '').trim();
+        const groups = {
+            '青菜供应商': ['菠菜', '麦芹', '香菜', '圆生菜', '青菜（把）', '青菜', '小青菜', '广东菜心', '菜心', '香葱', '小葱'],
+            '王伟供应商': ['豇豆', '长豇豆', '白豆角', '螺丝椒', '蒜苔', '蒜薹', '韭菜'],
+            '自采': ['纯牛奶', '牛奶', '水果玉米', '青笋', '平菇', '黄瓜', '西兰花', '西蓝花', '红萝卜', '胡萝卜', '洋葱', '新蒜', '净蒜', '蒜苗', '白萝卜', '象牙萝卜', '生姜', '姜']
+        };
+        for (const [group, names] of Object.entries(groups)) {
+            if (names.includes(text)) return group;
+        }
+        return '';
+    },
+
+    purchaseSupplierItemRank(name) {
+        const order = [
+            '菠菜', '麦芹', '香菜', '圆生菜', '青菜（把）', '青菜', '小青菜', '广东菜心', '菜心', '香葱', '小葱',
+            '豇豆', '长豇豆', '螺丝椒', '蒜苔', '蒜薹', '韭菜', '白豆角',
+            '纯牛奶', '牛奶', '水果玉米', '青笋', '平菇', '黄瓜', '西兰花', '西蓝花', '红萝卜', '胡萝卜', '洋葱', '新蒜', '净蒜', '蒜苗', '白萝卜', '象牙萝卜', '生姜', '姜'
+        ];
+        const index = order.indexOf(String(name || '').trim());
+        return index >= 0 ? index : 9999;
+    },
+
+    purchaseGroupLabel(name) {
+        return this.purchaseSupplierGroup(name) || this.purchaseCategory(name);
     },
 
     vegetableSortRank(name) {
@@ -2869,10 +2899,12 @@ const Printer = {
         return [...(items || [])].sort((a, b) => {
             const aName = a.name || a.product_name || '';
             const bName = b.name || b.product_name || '';
-            const aCategory = a.category || this.purchaseCategory(aName);
-            const bCategory = b.category || this.purchaseCategory(bName);
+            const aCategory = a.category || this.purchaseGroupLabel(aName);
+            const bCategory = b.category || this.purchaseGroupLabel(bName);
             const categoryRank = this.purchaseSortRank(aCategory) - this.purchaseSortRank(bCategory);
             if (categoryRank !== 0) return categoryRank;
+            const supplierRank = this.purchaseSupplierItemRank(aName) - this.purchaseSupplierItemRank(bName);
+            if (supplierRank !== 0) return supplierRank;
             const vegetableRank = (aCategory === '蔬菜类' ? this.vegetableSortRank(aName) : 9999) - (bCategory === '蔬菜类' ? this.vegetableSortRank(bName) : 9999);
             if (vegetableRank !== 0) return vegetableRank;
             const nameRank = this.purchaseNameSortRank(aName) - this.purchaseNameSortRank(bName);
@@ -2897,7 +2929,7 @@ const Printer = {
                         quantity: 0,
                         byCustomer: {},
                         notes: new Set(),
-                        category: this.purchaseCategory(name)
+                        category: this.purchaseGroupLabel(name)
                     });
                 }
                 const row = grouped.get(key);
