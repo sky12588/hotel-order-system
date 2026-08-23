@@ -2775,6 +2775,7 @@ const Printer = {
             ['豆制品类', ['黄豆芽', '大豆芽', '小豆芽', '豆芽菜', '凉粉', '红豆腐丝', '黑豆腐丝', '素毛肚丝', '精品魔芋', '方块面筋', '方块儿面筋', '羊肚丝', '酸豆角']],
             ['冻货类', ['花卷']],
             ['粮油调料类', ['素鸡', '泡椒', '辣椒段', '辣皮子']],
+            ['其他类', ['六六红', '水晶粉', '火锅宽粉', '火锅邵皮', '火锅苕皮', '芝麻酱', '贡菜', '金针菇', '针金菇', '青岛纯生', '鞭炮笋', '香铃卷', '鲜玉米', '鲜虾']],
         ];
         for (const [label, keywords] of priorityGroups) {
             if (keywords.some(keyword => text.includes(keyword))) return label;
@@ -2856,6 +2857,7 @@ const Printer = {
             '冰红茶', '益生菌酸奶',
             '冻玉米', '火锅丸子', '里昂火腿', '馄饨', '花卷',
             '原味面包', '黑全麦面包', '豆浆粉',
+            '六六红', '水晶粉', '火锅宽粉', '火锅邵皮', '火锅苕皮', '芝麻酱', '贡菜', '金针菇', '针金菇', '鞭炮笋', '香铃卷', '鲜玉米', '鲜虾', '青岛纯生',
         ];
         const index = order.indexOf(String(name || '').trim());
         return index >= 0 ? index : 9999;
@@ -2869,7 +2871,7 @@ const Printer = {
             const bCategory = b.category || this.purchaseCategory(bName);
             const categoryRank = this.purchaseSortRank(aCategory) - this.purchaseSortRank(bCategory);
             if (categoryRank !== 0) return categoryRank;
-            const vegetableRank = this.vegetableSortRank(aName) - this.vegetableSortRank(bName);
+            const vegetableRank = (aCategory === '蔬菜类' ? this.vegetableSortRank(aName) : 9999) - (bCategory === '蔬菜类' ? this.vegetableSortRank(bName) : 9999);
             if (vegetableRank !== 0) return vegetableRank;
             const nameRank = this.purchaseNameSortRank(aName) - this.purchaseNameSortRank(bName);
             if (nameRank !== 0) return nameRank;

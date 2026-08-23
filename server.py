@@ -1148,9 +1148,23 @@ HOTEL_CATEGORY_OVERRIDES = {
     '饮品乳品类': ['果溢多橙汁', '果溢多桃汁', '果溢多橙子', '果溢多猕猴桃汁', '冰红茶', '冰峰罐装', '冰峰瓶装', '瓶装冰峰', '伊利益消益生菌优酪酸奶', '伊利风味发酵乳复原乳酸奶', '益生菌发酵酸奶', '风味发酵酸奶', '纯牛奶', '冰峰', '酸梅汤'],
     '冻货类': ['玉米红枣糕', '玉米发糕', '花卷', '火锅杂类丸子蟹排', '火锅油条', '荷叶饼', '小油条', '牛柳条', '蟹排', '冻', '冷冻', '冻货', '冻品', '火锅丸子', '馄饨', '丸子', '素包', '鸡块', '什锦菜', '猪头肉', '里昂火腿', '王中王火腿'],
     '饼干': ['黑全麦面包', '原味面包', '黑色小饼干', '恋妮曲奇小饼干', '饼干', '曲奇'],
-    '其他类': ['榨菜丁', '榨菜丝', '蒜米', '泡椒', '冰糖', '打包袋', '豆瓣酱'],
+    '其他类': ['六六红', '水晶粉', '火锅宽粉', '火锅邵皮', '火锅苕皮', '芝麻酱', '贡菜', '针金菇', '金针菇', '青岛纯生', '鞭炮笋', '香铃卷', '鲜玉米', '鲜虾', '榨菜丁', '榨菜丝', '蒜米', '泡椒', '冰糖', '打包袋', '豆瓣酱'],
 }
 HOTEL_CATEGORY_EXACT_OVERRIDES = {
+    '六六红': '其他类',
+    '水晶粉': '其他类',
+    '火锅宽粉': '其他类',
+    '火锅邵皮': '其他类',
+    '火锅苕皮': '其他类',
+    '芝麻酱': '其他类',
+    '贡菜': '其他类',
+    '针金菇': '其他类',
+    '金针菇': '其他类',
+    '青岛纯生': '其他类',
+    '鞭炮笋': '其他类',
+    '香铃卷': '其他类',
+    '鲜玉米': '其他类',
+    '鲜虾': '其他类',
     '海带丝': '豆制品类',
     '干米线': '豆制品类',
     '湿米线': '豆制品类',
@@ -1189,6 +1203,7 @@ HOTEL_NAME_ALIASES = {
     '青菜': '青菜（把）',
     '青菜（把）': '青菜（把）',
     '黄爪': '黄瓜',
+    '针金菇': '金针菇',
     '黄甜辣': '黄甜椒',
     '磨菇': '蘑菇',
     '小香焦': '小香蕉',
@@ -1571,6 +1586,8 @@ PURCHASE_REVIEW_NAME_GROUPS = {
     '豆腐干': '豆腐',
     '豆腐皮': '豆腐',
     '豆皮': '豆腐',
+    '油豆皮': '油豆皮',
+    '鲜豆皮': '鲜豆皮',
 }
 
 
@@ -1600,6 +1617,9 @@ PURCHASE_REVIEW_NAME_ORDER = {
     '冻玉米': 701, '火锅丸子': 702, '里昂火腿': 703, '馄饨': 704, '花卷': 705,
     '原味面包': 801, '黑全麦面包': 802,
     '豆浆粉': 901, '核桃仁': 902, '瓜子仁': 903, '腰果': 904,
+    '六六红': 920, '水晶粉': 921, '火锅宽粉': 922, '火锅邵皮': 923, '火锅苕皮': 924,
+    '芝麻酱': 925, '贡菜': 926, '针金菇': 927, '金针菇': 927, '鞭炮笋': 928,
+    '香铃卷': 929, '鲜玉米': 930, '鲜虾': 931, '青岛纯生': 932,
     '生姜': 950, '姜': 951,
     '菠菜': 952, '波菜': 953,
     '西兰花': 954, '西蓝花': 955,
@@ -1653,15 +1673,21 @@ def vegetable_review_rank(name):
 def sort_purchase_review_items(items):
     rank = {category: idx for idx, category in enumerate(HOTEL_CATEGORY_ORDER)}
     indexed = list(enumerate(items))
-    indexed.sort(key=lambda pair: (
-        rank.get(hotel_item_category(pair[1].get('name') or pair[1].get('product_name') or ''), 999),
-        vegetable_review_rank(pair[1].get('name') or pair[1].get('product_name') or ''),
-        purchase_review_name_order(pair[1].get('name') or pair[1].get('product_name') or ''),
-        purchase_review_name_group(pair[1].get('name') or pair[1].get('product_name') or ''),
-        pair[1].get('name') or pair[1].get('product_name') or '',
-        pair[1].get('unit') or pair[1].get('product_unit') or '',
-        pair[0],
-    ))
+    def sort_key(pair):
+        item = pair[1]
+        raw_name = item.get('name') or item.get('product_name') or ''
+        name = normalize_hotel_item_name(raw_name)
+        category = hotel_item_category(name)
+        return (
+            rank.get(category, 999),
+            vegetable_review_rank(name) if category == '蔬菜类' else 9999,
+            purchase_review_name_order(name),
+            purchase_review_name_group(name),
+            name,
+            item.get('unit') or item.get('product_unit') or '',
+            pair[0],
+        )
+    indexed.sort(key=sort_key)
     return [item for _, item in indexed]
 
 
