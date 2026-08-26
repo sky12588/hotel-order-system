@@ -2761,20 +2761,39 @@ const Printer = {
 
     purchaseExportNote(name, notes) {
         const simpleNotes = new Set(['斤', '个', '件', '包', '袋', '箱', '瓶', '盒', '盘', '桶', '把', '根', '条', '颗', '捆', '提', '只', '块', '张', '份', '卷', '板']);
-        const itemName = String(name || '');
-        const noteAliases = { '连菜': '莲菜' };
+        const itemName = this.purchaseNormalizeName(name);
+        const noteAliases = { '连菜': '莲菜', '岐山臊子面': '臊子面', '胡罗卜': '红萝卜', '胡萝卜': '红萝卜', '红罗卜': '红萝卜' };
         return [...notes]
             .map(note => String(note || '').trim())
             .filter(note => {
-                const normalizedNote = noteAliases[note] || note;
+                const normalizedNote = this.purchaseNormalizeName(noteAliases[note] || note);
                 return note && !simpleNotes.has(note) && !itemName.includes(note) && normalizedNote !== itemName;
             })
             .filter((note, idx, arr) => arr.indexOf(note) === idx)
             .join('；');
     },
 
+    purchaseNormalizeName(name) {
+        const text = String(name || '').trim();
+        const aliases = {
+            '广红': '红萝卜',
+            '胡罗卜': '红萝卜',
+            '胡萝卜': '红萝卜',
+            '红罗卜': '红萝卜',
+            '红萝卜': '红萝卜',
+            '岐山臊子面': '臊子面',
+            '岐山哨子面': '臊子面',
+            '哨子面': '臊子面',
+            '蒜薹': '蒜苔',
+            '有机菜花': '菜花',
+            '花菜': '菜花',
+            '毛芹': '麦芹'
+        };
+        return aliases[text] || text;
+    },
+
     purchaseCategory(name) {
-        const text = String(name || '');
+        const text = this.purchaseNormalizeName(name);
         const priorityGroups = [
             ['豆制品类', ['黄豆芽', '大豆芽', '小豆芽', '豆芽菜', '凉粉', '红豆腐丝', '黑豆腐丝', '素毛肚丝', '精品魔芋', '方块面筋', '方块儿面筋', '羊肚丝', '酸豆角']],
             ['冻货类', ['花卷']],
@@ -2821,7 +2840,7 @@ const Printer = {
     },
 
     purchaseSupplierGroup(name) {
-        const text = String(name || '').trim();
+        const text = this.purchaseNormalizeName(name);
         const groups = {
             '青菜供应商': ['菠菜', '麦芹', '香菜', '圆生菜', '青菜（把）', '青菜', '小青菜', '广东菜心', '菜心', '香葱', '小葱'],
             '王伟供应商': ['豇豆', '长豇豆', '白豆角', '螺丝椒', '蒜苔', '蒜薹', '韭菜'],
@@ -2839,7 +2858,7 @@ const Printer = {
             '豇豆', '长豇豆', '螺丝椒', '蒜苔', '蒜薹', '韭菜', '白豆角',
             '纯牛奶', '牛奶', '水果玉米', '青笋', '平菇', '黄瓜', '西兰花', '西蓝花', '红萝卜', '胡萝卜', '洋葱', '新蒜', '净蒜', '蒜苗', '白萝卜', '象牙萝卜', '生姜', '姜'
         ];
-        const index = order.indexOf(String(name || '').trim());
+        const index = order.indexOf(this.purchaseNormalizeName(name));
         return index >= 0 ? index : 9999;
     },
 
@@ -2871,7 +2890,7 @@ const Printer = {
             '白玉菇', '金针菇', '平菇', '蘑菇', '磨菇', '香菇', '杏鲍菇',
             '白豆角', '豆王', '荷兰豆', '豇豆', '长豆角', '长豇豆', '豆苗', '水果玉米',
         ];
-        const index = order.indexOf(String(name || '').trim());
+        const index = order.indexOf(this.purchaseNormalizeName(name));
         return index >= 0 ? index : 9999;
     },
 
@@ -2895,7 +2914,7 @@ const Printer = {
             '原味面包', '黑全麦面包', '豆浆粉',
             '六六红', '水晶粉', '火锅宽粉', '火锅邵皮', '火锅苕皮', '芝麻酱', '贡菜', '金针菇', '针金菇', '鞭炮笋', '香铃卷', '鲜玉米', '鲜虾', '青岛纯生',
         ];
-        const index = order.indexOf(String(name || '').trim());
+        const index = order.indexOf(this.purchaseNormalizeName(name));
         return index >= 0 ? index : 9999;
     },
 
@@ -2923,7 +2942,7 @@ const Printer = {
         const grouped = new Map();
         sales.forEach(sale => {
             (sale.items || []).forEach(item => {
-                const name = item.product_name || '未知';
+                const name = this.purchaseNormalizeName(item.product_name || '未知');
                 const unit = item.product_unit || '';
                 const key = `${name}||${unit}`;
                 if (!grouped.has(key)) {

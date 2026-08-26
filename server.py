@@ -1229,7 +1229,9 @@ HOTEL_NAME_ALIASES = {
     '莲莲花白': '花白',
     '连菜': '莲菜',
     '广红': '红萝卜',
+    '胡罗卜': '红萝卜',
     '胡萝卜': '红萝卜',
+    '红罗卜': '红萝卜',
     '红萝卜': '红萝卜',
     '红辣椒': '红椒',
     '有机菜花': '菜花',
@@ -1245,6 +1247,9 @@ HOTEL_NAME_ALIASES = {
     '平茹': '平菇',
     '平姑': '平菇',
     '岐身': '岐山',
+    '岐山臊子面': '臊子面',
+    '岐山哨子面': '臊子面',
+    '哨子面': '臊子面',
     '细薄非叶面': '细薄韭叶面',
     '细薄韭叶面': '细薄韭叶面',
     '韭叶面': '细薄韭叶面',
@@ -1423,7 +1428,7 @@ def ark_smart_parse_hotel_grocery_text(text):
 2. JSON 格式为 {{"items":[{{"name":"品名","quantity":数字,"unit":"单位"}}]}}。
 3. 单位必须尽量使用原文单位，例如斤、袋、件、个、盒、盘、桶、瓶、箱；鸡蛋 1 提 = 5 盘，鸡蛋按盘输出。
 4. 品名不要带数量和单位。
-5. 常见别名规范：广红/胡萝卜/红萝卜=红萝卜，菜花/花菜/有机菜花=菜花，毛芹=麦芹，黑豆腐丝=红豆腐丝，方块儿面筋=方块面筋，精品魔芋=素毛肚丝，细薄非叶面/韭叶面=细薄韭叶面，麻婆豆腐料=麻婆豆腐调料，白色凉皮=白凉皮，口罩=一次性口罩。
+5. 常见别名规范：广红/胡罗卜/胡萝卜/红罗卜/红萝卜=红萝卜，岐山臊子面/岐山哨子面/哨子面=臊子面，菜花/花菜/有机菜花=菜花，毛芹=麦芹，黑豆腐丝=红豆腐丝，方块儿面筋=方块面筋，精品魔芋=素毛肚丝，细薄非叶面/韭叶面=细薄韭叶面，麻婆豆腐料=麻婆豆腐调料，白色凉皮=白凉皮，口罩=一次性口罩。
 6. 如果无法确定，不要编造，跳过该项。
 
 清单片段：
@@ -1935,6 +1940,50 @@ def purchase_export_note(name, note):
     return '；'.join(parts)
 
 
+def normalize_purchase_export_items(items, include_customer=False):
+    grouped = {}
+    def first_rank(value, fallback):
+        if isinstance(value, (int, float)):
+            return (0, value)
+        return (1, str(value or fallback))
+
+    for idx, item in enumerate(items or []):
+        raw_name = item.get('name') or item.get('product_name') or ''
+        name = normalize_hotel_item_name(raw_name)
+        unit = item.get('unit') or item.get('product_unit') or ''
+        purchase_group = item.get('purchase_group') or ''
+        customer = item.get('customer') or '' if include_customer else ''
+        key = (name, unit, purchase_group, customer)
+        if key not in grouped:
+            first_value = item.get('first_row') or item.get('first_sale') or idx
+            grouped[key] = {
+                'name': name,
+                'unit': unit,
+                'purchase_group': purchase_group,
+                'quantity': 0,
+                'note': '',
+                'first_row': first_value,
+                '_first_rank': first_rank(first_value, idx),
+            }
+            if include_customer:
+                grouped[key]['customer'] = customer
+        grouped[key]['quantity'] += as_float(item.get('quantity', 0))
+        old_note = grouped[key].get('note') or ''
+        new_note = item.get('note') or ''
+        notes = [part for part in [old_note, new_note] if part]
+        grouped[key]['note'] = '；'.join(dict.fromkeys('；'.join(notes).split('；'))) if notes else ''
+        first_value = item.get('first_row') or item.get('first_sale') or idx
+        ranked = first_rank(first_value, idx)
+        if ranked < grouped[key]['_first_rank']:
+            grouped[key]['first_row'] = first_value
+            grouped[key]['_first_rank'] = ranked
+    result = []
+    for item in grouped.values():
+        item.pop('_first_rank', None)
+        result.append(item)
+    return result
+
+
 def build_purchase_list_workbook(items, title):
     wb = Workbook()
     ws = wb.active
@@ -1953,8 +2002,8 @@ def build_purchase_list_workbook(items, title):
     ws['A1'].alignment = center
 
     current_category = None
-    for item in sort_purchase_review_items(items):
-        name = item.get('name') or item.get('product_name') or ''
+    for item in sort_purchase_review_items(normalize_purchase_export_items(items)):
+        name = normalize_hotel_item_name(item.get('name') or item.get('product_name') or '')
         category = purchase_group_label(name)
         show_category = category if category != current_category else ''
         current_category = category
@@ -2026,13 +2075,15 @@ def build_customer_split_purchase_workbook(summary_items, customer_items, custom
     ws['A1'].font = Font(bold=True, size=14)
     ws['A1'].alignment = center
 
+    summary_items = normalize_purchase_export_items(summary_items)
+    customer_items = normalize_purchase_export_items(customer_items, include_customer=True)
     by_customer = {
         (row['name'], row['unit'], row.get('purchase_group') or '', row['customer']): row['quantity']
         for row in customer_items
     }
     current_category = None
     for item in sort_purchase_review_items(summary_items):
-        name = item.get('name') or ''
+        name = normalize_hotel_item_name(item.get('name') or '')
         unit = item.get('unit') or ''
         purchase_group = item.get('purchase_group') or ''
         category = purchase_group_label(name)
