@@ -1567,6 +1567,79 @@ PURCHASE_SUPPLIER_ITEM_ORDER = {
 }
 
 
+SUPPLIER_ORDER_GROUPS = {
+    '面供应商': [
+        '炒饼丝', '炒饼', '饼丝', '细薄韭叶面', '韭叶面', '凉皮', '白凉皮',
+        '馍', '馒头', '手工面', '锅盔', '炒面', '臊子面', '岐山臊子面',
+        '拉条子', '河粉',
+    ],
+    '肉蛋供应商': [
+        '五花肉片', '五花肉块', '五花肉', '后腿肉', '后腿肉片', '前腿肉',
+        '前腿肉块', '里脊肉片', '肉丝', '肉沫', '排骨', '鸡胸肉', '鸡蛋',
+    ],
+    '调料供应商': [
+        '蒸鱼豉油', '卤肉料包', '包谷珍', '小米', '酸梅粉', '白糖', '红糖',
+        '糯米', '江米', '蜜枣', '大米', '大豆油', '香醋', '味极鲜', '虾皮',
+        '黄花菜干', '干黄花菜', '粉条', '红薯粉条', '料酒', '辣椒段',
+        '生抽', '老抽', '东古一品鲜', '食盐', '盐', '食用碱',
+    ],
+    '豆制品供应商': [
+        '黄豆芽', '大豆芽', '小豆芽', '豆芽菜', '豆腐丝', '红豆腐丝', '黑豆腐丝',
+        '豆腐皮', '豆皮', '豆腐干', '豆干', '老豆腐', '嫩豆腐', '素鸡',
+        '海带丝', '海带', '清水莲藕', '腐竹', '粉条',
+    ],
+    '青菜供应商': [
+        '菠菜', '麦芹', '香菜', '奶白菜', '小青菜', '青菜（把）', '青菜',
+        '油麦菜', '小白菜', '广东菜心', '菜心', '黄芽菜', '叶生菜',
+        '生菜', '香葱', '小葱',
+    ],
+    '王伟供应商': [
+        '豇豆', '长豇豆', '白豆角', '螺丝椒', '蒜苔', '韭菜', '紫甘蓝',
+        '红线椒', '绿线椒', '线椒', '青线椒', '豆王', '大白菜', '白菜',
+        '包菜', '西兰花', '西蓝花', '菜花', '洋葱', '黄瓜', '红萝卜',
+        '胡萝卜', '平菇', '净蒜', '生姜', '姜',
+    ],
+    '老九供应商': [
+        '荷兰豆', '西芹', '鲜小米椒', '小米椒', '韭黄', '苦菊',
+        '罗马生菜', '圆生菜', '薄荷叶', '娃娃菜',
+    ],
+    '库房': [
+        '红椒', '青椒', '红心萝卜', '西葫芦', '西红柿', '土豆',
+        '贝贝南瓜', '红薯', '酸奶', '纯奶', '纯牛奶', '腊肠',
+    ],
+    '自采': [
+        '水果玉米', '青笋', '净笋', '韭菜', '大葱', '新蒜', '蒜苗',
+        '白萝卜', '象牙萝卜', '铁棍山药', '山药', '杏鲍菇', '香菇',
+        '平菇', '玉米',
+    ],
+    '水果供应商': [
+        '香蕉', '小香蕉', '橘子', '香梨', '梨', '葡萄', '苹果', '白心火龙果',
+        '火龙果', '圣女果', '哈密瓜', '乳瓜', '西瓜', '李子', '柠檬',
+        '油桃', '桃子', '青提',
+    ],
+}
+
+SUPPLIER_ORDER_GROUP_ORDER = {
+    '面供应商': 1,
+    '肉蛋供应商': 2,
+    '调料供应商': 3,
+    '豆制品供应商': 4,
+    '青菜供应商': 5,
+    '王伟供应商': 6,
+    '老九供应商': 7,
+    '库房': 8,
+    '自采': 9,
+    '水果供应商': 10,
+    '其他': 99,
+}
+
+SUPPLIER_ORDER_ITEM_ORDER = {}
+for _group, _names in SUPPLIER_ORDER_GROUPS.items():
+    _base_rank = SUPPLIER_ORDER_GROUP_ORDER.get(_group, 99) * 1000
+    for _idx, _name in enumerate(_names):
+        SUPPLIER_ORDER_ITEM_ORDER.setdefault(_name, _base_rank + _idx)
+
+
 def purchase_supplier_group(name):
     text = normalize_hotel_item_name(str(name or ''))
     for group, names in PURCHASE_SUPPLIER_GROUPS.items():
@@ -1580,6 +1653,50 @@ def purchase_group_label(name):
     if supplier_group:
         return supplier_group
     return purchase_category_label(hotel_item_category(name))
+
+
+def supplier_order_group(name):
+    text = normalize_hotel_item_name(str(name or ''))
+    for group, names in SUPPLIER_ORDER_GROUPS.items():
+        if text in names:
+            return group
+    category = hotel_item_category(text)
+    if category == '主食面点类':
+        return '面供应商'
+    if category == '肉蛋类':
+        return '肉蛋供应商'
+    if category == '豆制品类':
+        return '豆制品供应商'
+    if category in ('粮油干货类', '调料咸菜类'):
+        return '调料供应商'
+    if category == '水果类':
+        return '水果供应商'
+    if category == '蔬菜类':
+        return '库房'
+    return '其他'
+
+
+def sort_supplier_order_items(items):
+    indexed = list(enumerate(items or []))
+
+    def sort_key(pair):
+        item = pair[1]
+        name = normalize_hotel_item_name(item.get('name') or item.get('product_name') or '')
+        group = supplier_order_group(name)
+        category = hotel_item_category(name)
+        return (
+            SUPPLIER_ORDER_GROUP_ORDER.get(group, 99),
+            SUPPLIER_ORDER_ITEM_ORDER.get(name, 999999),
+            vegetable_review_rank(name) if category == '蔬菜类' else 9999,
+            purchase_review_name_order(name),
+            purchase_review_name_group(name),
+            name,
+            item.get('unit') or item.get('product_unit') or '',
+            pair[0],
+        )
+
+    indexed.sort(key=sort_key)
+    return [item for _, item in indexed]
 
 
 def public_purchase_type_label(name):
@@ -1988,6 +2105,69 @@ def normalize_purchase_export_items(items, include_customer=False):
     return result
 
 
+def style_simple_purchase_sheet(ws, end_col, widths):
+    thin = Side(style='thin', color='666666')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    header_fill = PatternFill('solid', fgColor='F2F2F2')
+    center = Alignment(horizontal='center', vertical='center')
+    left = Alignment(horizontal='left', vertical='center')
+
+    if end_col > 1:
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=end_col)
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A1'].alignment = center
+
+    for idx, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(idx)].width = width
+
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=end_col):
+        for cell in row:
+            cell.border = border
+            cell.alignment = center if cell.column != 2 else left
+        if row[0].row == 2:
+            for cell in row:
+                cell.font = Font(bold=True)
+                cell.fill = header_fill
+
+
+def append_supplier_order_sheet(wb, summary_items, title, customer_items=None, customers=None):
+    ws = wb.create_sheet('供应商下单表')
+    customer_items = customer_items or []
+    customers = customers or []
+    customer_headers = [short_hotel_customer_name(customer) for customer in customers]
+    headers = ['下单供应商', '食材名称', '采购数量', '计量单位'] + customer_headers + ['备注']
+    ws.append([title.replace('采购单', '供应商下单表')] + [''] * (len(headers) - 1))
+    ws.append(headers)
+
+    summary_rows = normalize_purchase_export_items(summary_items)
+    customer_rows = normalize_purchase_export_items(customer_items, include_customer=True) if customers else []
+    by_customer = {}
+    for row in customer_rows:
+        key = (row['name'], row['unit'], row['customer'])
+        by_customer[key] = by_customer.get(key, 0) + as_float(row.get('quantity'))
+
+    current_group = None
+    for item in sort_supplier_order_items(summary_rows):
+        name = normalize_hotel_item_name(item.get('name') or item.get('product_name') or '')
+        unit = item.get('unit') or item.get('product_unit') or ''
+        group = supplier_order_group(name)
+        show_group = group if group != current_group else ''
+        current_group = group
+        row = [
+            show_group,
+            name,
+            clean_number(item.get('quantity', 0)),
+            unit,
+        ]
+        row.extend(clean_number(by_customer.get((name, unit, customer), 0)) or '' for customer in customers)
+        row.append(purchase_export_note(name, item.get('note') or ''))
+        ws.append(row)
+
+    widths = [18, 22, 14, 12] + [10] * len(customers) + [24]
+    style_simple_purchase_sheet(ws, len(headers), widths)
+    return ws
+
+
 def build_purchase_list_workbook(items, title):
     wb = Workbook()
     ws = wb.active
@@ -2032,6 +2212,7 @@ def build_purchase_list_workbook(items, title):
                 cell.font = Font(bold=True)
                 cell.fill = header_fill
 
+    append_supplier_order_sheet(wb, items, title)
     return wb
 
 
@@ -2116,6 +2297,7 @@ def build_customer_split_purchase_workbook(summary_items, customer_items, custom
                 cell.font = Font(bold=True)
                 cell.fill = header_fill
 
+    append_supplier_order_sheet(wb, summary_items, title, customer_items, customers)
     return wb
 
 
