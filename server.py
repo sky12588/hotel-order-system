@@ -1321,7 +1321,7 @@ def find_product(product_name, product_code='', spec='', unit=''):
         ''', (product_name, spec, spec, unit, unit))
     if not product and product_name:
         product = db.query_one('SELECT * FROM products WHERE name = ? LIMIT 1', (product_name,))
-    if not product and product_name:
+    if not product and product_name and allow_product_contains_match(product_name):
         product = db.query_one('SELECT * FROM products WHERE name LIKE ? LIMIT 1', (f'%{product_name}%',))
     return product
 
@@ -2300,9 +2300,20 @@ def find_product_with_conn(conn, name, spec='', unit=''):
     ''', (name, spec, spec, unit, unit)).fetchone()
     if not row:
         row = conn.execute('SELECT * FROM products WHERE name = ? LIMIT 1', (name,)).fetchone()
-    if not row:
+    if not row and allow_product_contains_match(name):
         row = conn.execute('SELECT * FROM products WHERE name LIKE ? LIMIT 1', (f'%{name}%',)).fetchone()
     return dict(row) if row else None
+
+
+def allow_product_contains_match(name):
+    text = re.sub(r'\s+', '', str(name or '').strip())
+    if len(text) <= 2:
+        return False
+    ambiguous_short_names = {
+        '红枣', '海带', '米线', '凉皮', '豆皮', '豆干', '黄瓜', '青椒', '红椒',
+        '苹果', '香蕉', '西瓜', '桃子', '鸡蛋', '牛奶', '酸奶', '腐竹',
+    }
+    return text not in ambiguous_short_names
 
 
 def canonical_customer_name(customer):
